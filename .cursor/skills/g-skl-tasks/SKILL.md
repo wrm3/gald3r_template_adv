@@ -1,4 +1,4 @@
----
+﻿---
 name: g-skl-tasks
 description: Own and manage all task data — TASKS.md index, tasks/ individual files, status transitions, sync validation, complexity scoring, and sprint planning. Single source of truth for everything task-related.
 ---
@@ -588,6 +588,32 @@ SYNC-CHECK does **NOT** flag missing tier badges as errors. Badges are derived a
 Run at session start or when phantom/orphan issues suspected.
 
 1. **Read TASKS.md** — extract all task entries with indicators
+   > **TASKS.md Dual-Format Parsing (MANDATORY)** — TASKS.md entries appear in two formats.
+   > You MUST match BOTH or the sync will silently miss entries.
+   >
+   > **Format A — Table rows (current standard, ~99% of entries):**
+   > ```
+   > | [🔍] | [804](tasks/task804_foo.md) | Title | type | deps |
+   > ```
+   > Pattern: `\|\s*\[([^\]]+)\]\s*\|\s*\[(\d+(?:-\d+)?)\]\(tasks/task`
+   > — Group 1 = status emoji, Group 2 = task ID
+   >
+   > **Format B — Legacy bullet rows (<1%, historical):**
+   > ```
+   > - [✅] **Task 014**: Title (tasks/task014_foo.md)
+   > ```
+   > Pattern: `\[([^\]]+)\]\s+\*\*Task\s+(\d+(?:-\d+)?)\*\*`
+   > — Group 1 = status emoji, Group 2 = task ID
+   >
+   > **PowerShell reference:**
+   > ```powershell
+   > $c = [IO.File]::ReadAllText($tasksPath)
+   > $tableIds  = [regex]::Matches($c, '\|\s*\[([^\]]+)\]\s*\|\s*\[(\d+(?:-\d+)?)\]\(tasks/task') | % { $_.Groups[2].Value }
+   > $bulletIds = [regex]::Matches($c, '\[([^\]]+)\]\s+\*\*Task\s+(\d+(?:-\d+)?)\*\*')          | % { $_.Groups[2].Value }
+   > $allIds    = ($tableIds + $bulletIds) | Sort-Object -Unique
+   > ```
+   > Whichever format is the canonical/preferred going forward: **Format A (table rows)**.
+   > Do not remove Format B detection — older or migrating TASKS.md files may still use it.
 2. **List** `.gald3r/tasks/task*.md`
 3. **For each TASKS.md entry**:
    ```
