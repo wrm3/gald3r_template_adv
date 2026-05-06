@@ -1,4 +1,4 @@
-Maximal workspace swarm autopilot — rolling implement/review until a hard stop: $ARGUMENTS
+﻿Maximal workspace swarm autopilot — rolling implement/review until a hard stop: $ARGUMENTS
 
 ## Mode: AUTOPILOT (rolling implement → review → next batch)
 
@@ -25,6 +25,12 @@ Asking "Continue?" "Which next?" "Looks like X — proceed?" mid-run is a **viol
 **The paradox guard**: If you would list a task in "Next safe commands," you MUST have attempted it in this run. Any task that passes all 6 checks is runnable. Run it — at N=1 bucket (no swarm) if necessary. Do not list it and then not run it.
 
 **Large-task handling**: When remaining tasks are individually large or multi-file, attempt them one at a time using N=1 bucket (single implementer + single reviewer) rather than refusing to batch-process them. A large task that is attempted and fails cleanly is better than a large task that was never tried.
+
+**Task selection ordering (MANDATORY)**: After computing the runnable queue (all tasks passing the 6-condition check), select tasks in this order:
+1. `priority: critical` tasks first (any ID)
+2. Then by **task ID ascending** — lowest numeric ID runs first
+
+`execution_cost`, `blast_radius`, task section name, and recency of surrounding work are NOT selection criteria. They affect N (bucket count) and reviewer thoroughness only. The autopilot MUST run the lowest-ID eligible task rather than self-selecting based on perceived complexity, cost, or "warm context." Cherry-picking higher-ID tasks over lower-ID eligible tasks is a spec violation equivalent to a complexity-aversion stop.
 
 **Controller-only fallback**: When ALL workspace-routed tasks block because every member repo is dirty or has a write-policy mismatch, do NOT stop — automatically fall back to `--controller-only` for that iteration and run any task whose `workspace_touch_policy` is `source_only` or `docs_only`. Only stop when the controller-only queue is also empty or blocked.
 
@@ -255,6 +261,7 @@ Never crash on optional backend failure; deferring affected work and continuing 
 | **Complexity aversion stops are forbidden** — "feature-class," "needs scoping," or "too large" never qualify as "no runnable work" | Anti-Quitting Rule: hard-stop table is exhaustive |
 | **Paradox guard** — any task in "Next safe commands" must have been attempted this run; if not, that is a spec violation | Fire-and-forget means: do it, don't suggest it |
 | **Large tasks run at N=1** — attempt complex tasks individually (single bucket, single reviewer) rather than refusing to process them | Attempting and failing is better than not attempting |
+| **Task selection ordering** — within the runnable queue, `critical` tasks first, then lowest task ID first; `execution_cost`, `blast_radius`, and recency are NOT selection signals | Prevents cherry-picking easy high-ID tasks over foundational low-ID work |
 | **Controller-only fallback** — when all workspace member repos block, retry `source_only`/`docs_only` tasks before stopping | Never stop while controller-only work remains |
 | Autopilot composes existing safe primitives — never bypasses any gate | One command, same safety contract |
 | Implementation agents NEVER self-verify their own work | Adversarial independence preserved across all loop iterations |
