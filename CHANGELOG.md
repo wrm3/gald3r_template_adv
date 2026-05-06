@@ -10,9 +10,17 @@ gald3r uses [Semantic Versioning](https://semver.org/).
 
 ### Added
 
+- **External analysis safety gate** (`@g-res-apply`): before creating implementation tasks from any externally analyzed codebase, gald3r now compares the proposed approach against your existing implementation and your pending work queue. Features that would replace something you already have are classified as `replacement`-type and require explicit confirmation before any tasks are created. The comparison panel shows your current approach, the proposed approach, and any competing pending tasks side-by-side so you can make an informed decision. Features that add genuinely new capability proceed automatically. All tasks created through the analysis workflow now carry a visible reminder to verify the approach against your existing codebase before coding begins.
+
+- **Pre-implementation verification for analyzed features** (`@g-go`, `@g-go-code`): when the AI agent picks up a task that was sourced from external analysis, it pauses before coding to review the relevant subsystem specs and scan the pending task queue for overlap. Additive features proceed after surfacing a quick context summary. Replacement-class features block until you confirm the approach is genuinely superior (`harvest_approved: true` in the task frontmatter, or `--override` flag for automated pipelines). This prevents the agent from unknowingly replacing a good working system with something worse.
+
 - `docs/PLUGINS.md`: plugin author guide covering skill pack structure, distribution, naming guidelines, and licensing options for third-party extensions.
 - README "Plugins & Skill Packs" section with naming guideline and licensing clarification (plugins are separate works, any license allowed).
 - NOTICE clarified with plain-language license summary and plugin naming guideline.
+
+### Fixed
+
+- **AI agent autopilot reliability** (`@g-go-go`): the autopilot no longer stops early when it encounters tasks that appear complex or large. Previously, an agent could subjectively classify a task as "feature-class" or "needs scoping" and halt the run — consuming your budget without completing work. The fixed behavior requires the agent to attempt every technically-runnable task individually, fall back to controller-only mode before giving up on multi-repo tasks, and only stop when every task in the queue has a concrete, objectively-verifiable reason it cannot proceed (unresolved dependencies, explicit `[🚨]` escalation, or truly no remaining `[📋]` tasks).
 
 ### Changed
 
