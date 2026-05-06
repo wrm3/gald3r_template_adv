@@ -16,6 +16,18 @@ Maximal workspace swarm autopilot — rolling implement/review until a hard stop
 
 Asking "Continue?" "Which next?" "Looks like X — proceed?" mid-run is a **violation of this rule**. Apply the auto-plan, run the next iteration, and if the run cannot continue safely, emit the final summary and exit.
 
+### ⛔ ANTI-QUITTING RULE — EQUALLY MANDATORY
+
+**Stopping because tasks appear "complex," "feature-class," "large," or "need scoping decisions" is a VIOLATION of this command.** Those are not hard stops. The hard-stop table is exhaustive — there is no ninth stop.
+
+**"No runnable work"** means EVERY remaining task fails at least one of the explicit 6-condition member authorization checks or a defined hard stop. It does NOT mean "I assessed the tasks and they look difficult." Complexity is never a stop reason.
+
+**The paradox guard**: If you would list a task in "Next safe commands," you MUST have attempted it in this run. Any task that passes all 6 checks is runnable. Run it — at N=1 bucket (no swarm) if necessary. Do not list it and then not run it.
+
+**Large-task handling**: When remaining tasks are individually large or multi-file, attempt them one at a time using N=1 bucket (single implementer + single reviewer) rather than refusing to batch-process them. A large task that is attempted and fails cleanly is better than a large task that was never tried.
+
+**Controller-only fallback**: When ALL workspace-routed tasks block because every member repo is dirty or has a write-policy mismatch, do NOT stop — automatically fall back to `--controller-only` for that iteration and run any task whose `workspace_touch_policy` is `source_only` or `docs_only`. Only stop when the controller-only queue is also empty or blocked.
+
 ---
 
 ## Default Configuration
@@ -108,7 +120,10 @@ INIT
 
 LOOP (iter < budget_remaining)
   ├─ Re-evaluate runnable queue (T532 workspace selection unless --controller-only)
-  ├─ If queue is empty → STOP (all-clear)
+  ├─ If queue is truly empty (every task fails an explicit 6-condition check) → STOP (all-clear)
+  │   NOTE: "looks complex" or "feature-class" is NOT empty. See Anti-Quitting Rule above.
+  ├─ If all workspace-routed tasks block on member repo issues, fall back to --controller-only
+  │   for this iteration and retry source_only / docs_only tasks before stopping.
   ├─ Phase 1 (g-go-code --swarm --workspace protocol):
   │   ├─ Skip non-expired [📝] / [🔄] / [🕵️] claims
   │   ├─ Partition into N buckets (N = smart agent count from g-go)
@@ -153,7 +168,7 @@ The loop never blocks on `[🔍]` dependencies of newly runnable downstream work
 | **`[🚨]` user-attention item** | task or bug has user-attention status | skip item; never auto-retry |
 | **Verification retry ceiling** | task has ≥3 FAIL cycles in Status History | mark `[🚨]`; halt if all queue is `[🚨]` |
 | **Run budget exhausted** | `iter >= budget_remaining` | clean halt |
-| **No runnable work** | recomputed queue is empty after a successful iteration | clean halt |
+| **No runnable work** | recomputed queue is empty after a successful iteration — meaning EVERY remaining task fails at least one explicit 6-condition check or a listed hard stop. Complexity, task size, and "needs scoping" are NOT valid reasons. If ANY task passes all 6 checks, it is runnable — attempt it. | clean halt |
 | **Manifest unparseable** | `workspace_manifest.yaml` missing/broken on a multi-repo run | halt; report manifest error |
 | **Workspace-Control preflight denial** | unknown manifest repo IDs / not a git root / unauthorized routing | halt with the specific blocker |
 
@@ -237,6 +252,10 @@ Never crash on optional backend failure; deferring affected work and continuing 
 | Rule | Why |
 |------|-----|
 | Bare `/g-go` is unchanged — `/g-go-go` is a separate explicit command | Autopilot must be opt-in, never silent |
+| **Complexity aversion stops are forbidden** — "feature-class," "needs scoping," or "too large" never qualify as "no runnable work" | Anti-Quitting Rule: hard-stop table is exhaustive |
+| **Paradox guard** — any task in "Next safe commands" must have been attempted this run; if not, that is a spec violation | Fire-and-forget means: do it, don't suggest it |
+| **Large tasks run at N=1** — attempt complex tasks individually (single bucket, single reviewer) rather than refusing to process them | Attempting and failing is better than not attempting |
+| **Controller-only fallback** — when all workspace member repos block, retry `source_only`/`docs_only` tasks before stopping | Never stop while controller-only work remains |
 | Autopilot composes existing safe primitives — never bypasses any gate | One command, same safety contract |
 | Implementation agents NEVER self-verify their own work | Adversarial independence preserved across all loop iterations |
 | Hard stops emit final summaries and exit cleanly | Stops are not failures; they are the safety boundary |

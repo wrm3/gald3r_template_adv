@@ -778,6 +778,7 @@ adoption:
   source_artifact_type: ""        # task | bug | feature | prd | subsystem | constraint | plan | linking
   source_artifact_id: ""
   source_artifact_path: ""
+  source_artifact_archive_path: ""  # OPTIONAL — archive-aware path written when the source repo is later finalized to marker-only and the original on-disk file is preserved only inside a finalization archive zip. Format: "<absolute_or_repo_relative_archive_zip_path>!<entry_path_inside_zip>". Verifiers prefer this when source_artifact_path no longer resolves on disk. (BUG-034)
   adopted_as_id: ""
   adoption_operation_id: ""
   adoption_class: ""              # active-control-visible | archived-reference | link-only | merge-candidate | conflict-deferred
@@ -785,6 +786,26 @@ adoption:
 ```
 
 Provenance fields are never stripped on subsequent edits.
+
+#### Archive-Aware Provenance (post-finalization adopted mirrors — BUG-034)
+
+When an adopted member repository is later finalized to marker-only (`.gald3r/` reduced to `.identity` + `PROJECT.md` per `g-rl-36`), the original task / bug / feature / PRD source files are preserved inside a finalization archive zip at the member repo root (e.g. `.gald3r_archive_YYYYMMDD.zip`) but no longer exist at the path captured in `adoption.source_artifact_path`. To preserve audit traceability, controller-side adopted mirrors carry an optional `source_artifact_archive_path` pointing into the archive:
+
+```yaml
+adoption:
+  source_artifact_path: "G:/gald3r_ecosystem/gald3r_web/.gald3r/tasks/task013_features_comparison_page.md"  # authoritative pre-finalization path; KEPT verbatim
+  source_artifact_archive_path: "G:/gald3r_ecosystem/gald3r_web/.gald3r_archive_20260429.zip!tasks/task013_features_comparison_page.md"  # archive-aware fallback (BUG-034)
+```
+
+Resolution order for verifiers, audit tooling, and `@g-pcac-status` lookups:
+
+1. Try `source_artifact_path` on disk first — if it resolves, use it (pre-finalization sources, or sources that were never finalized).
+2. If on-disk does not resolve and `source_artifact_archive_path` is present, resolve via the archive zip (parse `<archive_zip>!<entry_path>`; open the zip read-only and read the named entry).
+3. If neither resolves, surface a `provenance_unresolved` finding — neither broken nor implicitly accepted.
+
+The original `source_artifact_path` is never rewritten — it remains the authoritative pre-finalization record-of-origin. `source_artifact_archive_path` is purely additive.
+
+Workspace-Control finalization MUST record `source_artifact_archive_path` on every controller-side adopted mirror whose source member it is finalizing, in the same finalization operation that produces the archive zip. Backfill of pre-existing adopted mirrors (e.g. T227–T232 from `gald3r_web` per BUG-034) is a one-shot bug-fix operation and uses the same field shape.
 
 ### Per-Artifact Adoption Plan (Five Classes)
 

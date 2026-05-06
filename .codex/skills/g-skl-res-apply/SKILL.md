@@ -167,6 +167,49 @@ Full intake. Creates all gald3r artifacts for the selected features.
 - Group by theme → propose 1-3 new project goals
 - Append to `PROJECT.md` under `## Goals` only if not already present (fuzzy match)
 
+#### Step 2.5 — Existing State Check (MERGE-candidate subsystems only)
+
+**Purpose**: Prevent replacing working code or in-queue work with an inferior harvested alternative.
+
+For each subsystem candidate that will score ≥70% against SUBSYSTEMS.md (anticipate MERGE):
+
+1. **Read existing code summary** — Read the subsystem's `locations:` files/folders from its spec. Produce a 3-5 line bullet summary of what is currently implemented (key capabilities, tech choices, patterns). If `locations:` is empty or spec doesn't exist yet, mark as "no existing implementation".
+
+2. **Scan pending tasks** — Search `TASKS.md` and each task file in `tasks/` for `subsystems:` YAML entries matching this subsystem. Collect all tasks with status `[📋]`, `[🔄]`, or `[🕵️]`. List: task ID, title, and key approach (from Objective heading, first 1-2 lines).
+
+3. **Classify each incoming feature** as one of:
+   - `additive` — adds new capability not present in existing code OR pending tasks
+   - `replacement` — would modify, replace, or overlap with existing functionality or a pending task's scope
+
+4. **For `replacement`-type features** — display comparison panel and require response:
+   ```
+   ⚠️ REPLACEMENT DETECTED — {feature_title}
+   ─────────────────────────────────────────
+   Existing code in '{subsystem}':
+     • {bullet 1 of existing impl summary}
+     • {bullet 2}
+   Pending tasks for same subsystem:
+     T{N}: "{title}" [{status}] — {key approach}
+     (none) if queue is empty
+   Proposed change:
+     {feature description from FEATURES.md, 2-3 lines}
+   ─────────────────────────────────────────
+   Is this proposed change BETTER than existing + pending?
+   [yes] proceed  [no] mark inferior  [skip] defer  [defer] IDEA_BOARD only
+   ```
+   - `yes` → proceed; set `harvest_type: replacement` in generated task YAML
+   - `no` → mark feature `[❌]` with reason `"inferior to existing code/tasks: {reason}"` — no task created
+   - `skip` → mark feature `[⏸]` with reason `"user-deferred comparison"` — no task created now
+   - `defer` → add to IDEA_BOARD as `[research]` note with comparison context; no task created
+
+5. **Cross-source ranking note** — If `_recon_index.yaml` shows ≥2 prior slugs with `status: applied` or `status: approved` mapping features to this same subsystem, surface a warning:
+   ```
+   ℹ️ Multiple sources analyzed for '{subsystem}': {slug_1} ({date}), {slug_2} ({date})
+   Consider running @g-res-apply COMPARE {slug1} vs {slug2} before applying either.
+   ```
+
+> **Skipping this step for `additive` features is valid.** Only `replacement`-type features require the comparison panel.
+
 #### Step 3 — Subsystem Detection and Creation
 For each `subsystem_candidates` entry in FEATURES.md frontmatter:
 1. Read `.gald3r/SUBSYSTEMS.md`
@@ -257,6 +300,28 @@ For each task cluster:
 1. Assign next sequential task ID
 2. Create `tasks/task{NNN}_{slug}_{group_slug}.md`
 3. Add row to TASKS.md under appropriate subsystem header
+
+**Mandatory YAML frontmatter fields for every recon-generated task** (append to existing frontmatter):
+```yaml
+harvested_from: "{recon_slug}"
+harvest_date: "YYYY-MM-DD"
+harvest_type: "additive" | "replacement"
+```
+
+**Mandatory warning banner** — insert immediately after the `# Task NNN: Title` heading and before `## Objective`:
+```markdown
+> ⚠️ **HARVESTED ENHANCEMENT** — This task was generated from an external recon analysis.
+> Source: `{recon_slug}` (analyzed {harvest_date}). Feature IDs: `{feature_ids}`.
+>
+> **Before implementing:** Verify this approach is better than:
+> 1. Existing code already in the subsystem (`{subsystem_name}`)
+> 2. Any pending tasks already queued for this subsystem
+>
+> See `{recon_base}{slug}/FEATURES.md` for the original feature descriptions.
+> If in doubt, run `@g-res-apply STATUS` to review the intake report first.
+```
+
+This banner is **not optional** — it must appear in every task created by this skill regardless of `harvest_type`.
 
 #### Step 6 — Update `_recon_index.yaml`
 - Change entry's `status` to `applied`

@@ -136,6 +136,42 @@ Before Phase 1 worktree allocation, resolve task-spec claims in the primary chec
 - For expired `[📝]` claims, append a Status History takeover row naming the prior `spec_owner`, then finish/promote the spec before worktree creation.
 - Only `[📋]` tasks or stale claims successfully promoted to `[📋]` proceed to Phase 1 coding worktree creation.
 
+### 2b. Harvested Task Pre-Flight Check (T810)
+
+**Applies to any task with `harvested_from:` in its YAML frontmatter.** Runs after speccing claims are resolved, before Phase 1 worktrees are created. Tasks without the field pass silently.
+
+For each queued task that has `harvested_from:` set:
+
+1. **Read subsystem spec** — Find the task's `subsystems:` list. For each subsystem, read `.gald3r/subsystems/{name}.md`. Extract the `locations:` paths and read the key files there. Produce a 3-5 line bullet summary of what is currently implemented.
+
+2. **Scan pending queue** — Search `TASKS.md` for other tasks in status `[📋]` or `[🔄]` that reference the same subsystem(s) in their frontmatter. List: task ID, title, status.
+
+3. **Display context panel:**
+   ```
+   ⚠️ HARVESTED TASK PRE-FLIGHT
+   ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+   Task:    T{id} — {title}
+   Source:  {harvested_from} (analyzed {harvest_date})
+   Type:    {harvest_type}
+
+   Subsystem: {subsystem_name}
+   Existing implementation:
+     • {bullet 1}
+     • {bullet 2}
+
+   Other pending tasks for same subsystem:
+     T{n}: "{title}" [{status}]
+   ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+   ```
+
+4. **Decision gate by `harvest_type`:**
+   - `harvest_type: additive` — Display panel, then **proceed automatically.**
+   - `harvest_type: replacement` without `harvest_approved: true` — **BLOCK.** Do not proceed to Phase 1. Ask: "This task would replace existing functionality. Confirm to proceed, or `skip` to defer." Log in Skipped section as "Awaiting harvest comparison confirmation."
+   - `harvest_type: replacement` with `harvest_approved: true` — Display panel as context, then proceed.
+   - No `harvested_from:` field — Pass silently. (Legacy tasks.)
+
+> **`--override-harvest-check` flag** — treats all replacement harvested tasks as approved. Use for batch runs after explicit human review of the harvest intake report.
+
 ### 3. Pre-Create Phase 1 Coding Worktrees
 
 After speccing claims are resolved, Phase 1 uses the same isolation contract as `g-go-code`:
