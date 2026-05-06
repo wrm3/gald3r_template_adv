@@ -1,4 +1,4 @@
-﻿Maximal workspace swarm autopilot — rolling implement/review until a hard stop: $ARGUMENTS
+Maximal workspace swarm autopilot — rolling implement/review until a hard stop: $ARGUMENTS
 
 ## Mode: AUTOPILOT (rolling implement → review → next batch)
 
@@ -262,6 +262,7 @@ Never crash on optional backend failure; deferring affected work and continuing 
 | **Paradox guard** — any task in "Next safe commands" must have been attempted this run; if not, that is a spec violation | Fire-and-forget means: do it, don't suggest it |
 | **Large tasks run at N=1** — attempt complex tasks individually (single bucket, single reviewer) rather than refusing to process them | Attempting and failing is better than not attempting |
 | **Task selection ordering** — within the runnable queue, `critical` tasks first, then lowest task ID first; `execution_cost`, `blast_radius`, and recency are NOT selection signals | Prevents cherry-picking easy high-ID tasks over foundational low-ID work |
+| **TASKS.md dual-format scan (MANDATORY)** — TASKS.md contains tasks in two formats that MUST both be scanned: (1) bullet-list `- [STATUS] **Task NNN**:...` and (2) markdown-table `\| [STATUS] \| [NNN](path) \| title \| type \| deps \|`. A grep that only matches the bullet format silently drops the entire table backlog. Before declaring "no runnable work", verify both patterns were searched. Missing table-format tasks and claiming the queue is empty is a spec violation equivalent to a complexity-aversion stop. | Queue completeness — prevents silent task starvation |
 | **Controller-only fallback** — when all workspace member repos block, retry `source_only`/`docs_only` tasks before stopping | Never stop while controller-only work remains |
 | Autopilot composes existing safe primitives — never bypasses any gate | One command, same safety contract |
 | Implementation agents NEVER self-verify their own work | Adversarial independence preserved across all loop iterations |
