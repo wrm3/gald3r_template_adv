@@ -324,6 +324,57 @@ worktree_owner: "{agent_id_or_platform_slug}"
      - If updated: write change to `capabilities.md` and optionally trigger `g-skl-pcac-notify --capability-update`
    - If no match or capabilities.md missing: skip silently
 
+4d. **Lifecycle activity emit (T826, contract: T818)** — fire-and-forget POST to `gald3r_valhalla` `/v1/activity/emit` after the Status History row is written for these five lifecycle transitions:
+
+   | Transition | `event_type` | When |
+   |---|---|---|
+   | `[ ]`/`[📋]` → `[🔄]` (claim) | `claim` | After `pending → in-progress` row |
+   | Mid-task heartbeat while `[🔄]` | `in-progress` | Optional periodic ping (g-go-code idle gate) |
+   | `[🔄]` → `[🔍]` (impl done) | `awaiting-verification` | After `in-progress → awaiting-verification` row |
+   | `[🔍]` → `[✅]` (PASS) | `complete` | After `verification-in-progress → completed` row |
+   | `[🔍]` → `[📋]`/`[🚨]` (FAIL) | `fail` | After FAIL row |
+
+   **Wire format**:
+   ```http
+   POST /v1/activity/emit  Content-Type: application/json
+   {
+     "session_id": "<workflow-session-id>",
+     "event_type": "<claim|in-progress|awaiting-verification|complete|fail>",
+     "payload": { "task_id": <int>, "agent_role": "<role>", "owner": "<owner>" },
+     "timestamp": <unix-epoch-seconds>
+   }
+   ```
+
+   **Endpoint resolution**: read `valhalla_url` from `.gald3r/.identity` if present; else default to `http://localhost:8092`.
+
+   **PowerShell pattern (fire-and-forget)**:
+   ```powershell
+   try {
+     $body = @{
+       session_id = $sid; event_type = $evt
+       payload = @{ task_id = $tid; agent_role = $role; owner = $own }
+       timestamp = [int64]([DateTimeOffset]::UtcNow.ToUnixTimeSeconds())
+     } | ConvertTo-Json -Compress
+     Invoke-WebRequest -Uri "$valhalla/v1/activity/emit" -Method POST -Body $body `
+       -ContentType "application/json" -UseBasicParsing -TimeoutSec 2 | Out-Null
+   } catch { }
+   ```
+
+   **Bash pattern (fire-and-forget)**:
+   ```bash
+   curl -fsS -X POST "$VALHALLA_URL/v1/activity/emit" \
+     -H 'Content-Type: application/json' -d "$payload" \
+     --max-time 2 >/dev/null 2>&1 || true
+   ```
+
+   **Hard contract** (per T818 §"Failure semantics"):
+   - Emit failure MUST NOT block the status write or surface errors to the user.
+   - Transport failures are silent at debug level only — no retries, no escalation, no bug filing.
+   - If `gald3r_valhalla` is unreachable, the lifecycle transition still succeeds.
+   - Avatar animation is a best-effort UI surface, not a correctness-critical signal.
+
+   See `docs/20260506_152259_Cursor_T818_LIFECYCLE_BINDING_CONTRACT.md` for the full schema and verification checklist.
+
 5. **Confirm**:
    ```
    ✅ Task NNN → {new_status}
