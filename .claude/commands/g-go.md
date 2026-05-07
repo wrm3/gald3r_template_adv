@@ -275,6 +275,27 @@ After reviewer completes:
 4. Write Pipeline Session Summary (see format below), including the review-result commit SHA or the explicit non-commit blocker
 
 The coordinator commits the review result by default for PASS, FAIL, and mixed verdicts. Allowed reasons not to commit are limited to unresolved conflicts, failed commit hooks, staged or untracked unrelated changes, detected secrets, dirty generated outputs not owned by review, missing user permission for destructive or out-of-scope changes, or repository state that prevents a safe commit.
+### 5. Member Repo Merge (Post-PASS)
+
+After the review-result commit, for every PASS item whose code worktree targets a **member repository** (any `workspace_repos` value that resolves to a repo other than the controller itself), run the merge-and-cleanup step:
+
+```powershell
+.\scripts\gald3r_worktree.ps1 -Action MergeToMain -RepoPath <member_path> -TaskId {id} -Owner {owner} -Apply -Json
+```
+
+The helper:
+1. Attempts `git merge --ff-only <code_branch>` into the member's current `HEAD`
+2. If FF fails (intervening commits), falls back to `git merge --no-ff -m "merge(T{id}): merge verified implementation into main"`
+3. On success: removes the code worktree + branch, removes the review worktree + branch, removes worktree folders, and runs `git worktree prune`
+4. Returns a structured JSON result: `action` = `merged` | `merge-blocked` | `merge-skipped-dirty` | `skipped`
+
+**Merge blocked**: if merge fails (conflict or unrelated history), preserve the branch and log `[MERGE-BLOCKED] T{id}: <reason>` in the Pipeline Session Summary as a human action item. Do not fail the overall run.
+
+**Member dirty**: if the member repo has uncommitted changes unrelated to this task at merge time, log `[MERGE-SKIPPED-DIRTY] T{id}: member dirty` and preserve the branch. Do not attempt the merge.
+
+**FAIL items**: do NOT run MergeToMain for items that received a FAIL verdict — the code branch must be preserved for re-implementation.
+
+Run MergeToMain per PASS item sequentially in dependency order (lowest task ID first) so that each merge advances member `HEAD` cleanly for the next FF candidate.
 
 When Phase 2 review and later Phase 1 rolling waves overlap, the coordinator serializes shared writes by checkpoint generation:
 
@@ -306,6 +327,10 @@ If review FAILs an item that later rolling-wave work consumed, requeue the faile
 | Task 7 | [✅] PASS | all ACs met |
 | Task 9 | [✅] PASS | all ACs met |
 | BUG-003 | [📋] FAIL | AC-2 not met — {reason} |
+
+### Member Repo Merges
+- {member_repo}: T{id} ✅ merged (ff)
+- Blocked: none
 
 ### Final Status
 - ✅ Completed (verified): 2
@@ -382,6 +407,10 @@ Coordinator performs one final shared-write pass for `TASKS.md`, `BUGS.md`, task
 |----------|-------|------|------|
 | R-1 | 7, 10 | 2 | 0 |
 | R-2 | 9 | 0 | 1 |
+
+### Member Repo Merges
+- {member_repo}: T{id} ✅ merged (ff)
+- Blocked: none
 
 ### Final Status
 - ✅ Completed (verified): {N}
