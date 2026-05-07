@@ -1,4 +1,4 @@
-Maximal workspace swarm autopilot — rolling implement/review until a hard stop: $ARGUMENTS
+﻿Maximal workspace swarm autopilot — rolling implement/review until a hard stop: $ARGUMENTS
 
 ## Mode: AUTOPILOT (rolling implement → review → next batch)
 
@@ -25,6 +25,12 @@ Asking "Continue?" "Which next?" "Looks like X — proceed?" mid-run is a **viol
 **The paradox guard**: If you would list a task in "Next safe commands," you MUST have attempted it in this run. Any task that passes all 6 checks is runnable. Run it — at N=1 bucket (no swarm) if necessary. Do not list it and then not run it.
 
 **Large-task handling**: When remaining tasks are individually large or multi-file, attempt them one at a time using N=1 bucket (single implementer + single reviewer) rather than refusing to batch-process them. A large task that is attempted and fails cleanly is better than a large task that was never tried.
+
+**Task selection ordering (MANDATORY)**: After computing the runnable queue (all tasks passing the 6-condition check), select tasks in this order:
+1. `priority: critical` tasks first (any ID)
+2. Then by **task ID ascending** — lowest numeric ID runs first
+
+`execution_cost`, `blast_radius`, task section name, and recency of surrounding work are NOT selection criteria. They affect N (bucket count) and reviewer thoroughness only. The autopilot MUST run the lowest-ID eligible task rather than self-selecting based on perceived complexity, cost, or "warm context." Cherry-picking higher-ID tasks over lower-ID eligible tasks is a spec violation equivalent to a complexity-aversion stop.
 
 **Controller-only fallback**: When ALL workspace-routed tasks block because every member repo is dirty or has a write-policy mismatch, do NOT stop — automatically fall back to `--controller-only` for that iteration and run any task whose `workspace_touch_policy` is `source_only` or `docs_only`. Only stop when the controller-only queue is also empty or blocked.
 
@@ -255,7 +261,11 @@ Never crash on optional backend failure; deferring affected work and continuing 
 | **Complexity aversion stops are forbidden** — "feature-class," "needs scoping," or "too large" never qualify as "no runnable work" | Anti-Quitting Rule: hard-stop table is exhaustive |
 | **Paradox guard** — any task in "Next safe commands" must have been attempted this run; if not, that is a spec violation | Fire-and-forget means: do it, don't suggest it |
 | **Large tasks run at N=1** — attempt complex tasks individually (single bucket, single reviewer) rather than refusing to process them | Attempting and failing is better than not attempting |
+| **Task selection ordering** — within the runnable queue, `critical` tasks first, then lowest task ID first; `execution_cost`, `blast_radius`, and recency are NOT selection signals | Prevents cherry-picking easy high-ID tasks over foundational low-ID work |
+| **TASKS.md dual-format scan (MANDATORY)** — TASKS.md contains tasks in two formats that MUST both be scanned: (1) bullet-list `- [STATUS] **Task NNN**:...` and (2) markdown-table `\| [STATUS] \| [NNN](path) \| title \| type \| deps \|`. A grep that only matches the bullet format silently drops the entire table backlog. Before declaring "no runnable work", verify both patterns were searched. Missing table-format tasks and claiming the queue is empty is a spec violation equivalent to a complexity-aversion stop. | Queue completeness — prevents silent task starvation |
+| **Dependency resolution includes archive (MANDATORY)** — when checking condition 4 (all dependencies resolved), if a dependency task file is NOT found in `.gald3r/tasks/task{id}_*.md`, ALSO check `.gald3r/archive/tasks/*/task{id}_*.md`. A task found in the archive with `status: completed` (or `status: verified`) counts as a fully satisfied dependency. Never treat a missing-in-active-tasks dependency as unresolved without first checking the archive. Marking a task as blocked because a dep "file not found" when that dep lives in the archive is a spec violation equivalent to a complexity-aversion stop. | Prevents archived completed deps from silently blocking downstream chains |
 | **Controller-only fallback** — when all workspace member repos block, retry `source_only`/`docs_only` tasks before stopping | Never stop while controller-only work remains |
+| **Auto-merge member repo branches on PASS (MANDATORY)** -- after the review-result commit for each PASS item, run `gald3r_worktree.ps1 -Action MergeToMain -RepoPath <member_path> -TaskId {id} -Apply` in dependency order (lowest ID first); on success the helper FF-merges the code branch into member main and deletes both code + review branches and worktree folders; on merge-blocked or member-dirty: preserve branch, log `[MERGE-BLOCKED]` / `[MERGE-SKIPPED-DIRTY]` in session summary as human action item; never run MergeToMain for FAIL items | Eliminates manual branch merge ceremony after every autopilot run |
 | Autopilot composes existing safe primitives — never bypasses any gate | One command, same safety contract |
 | Implementation agents NEVER self-verify their own work | Adversarial independence preserved across all loop iterations |
 | Hard stops emit final summaries and exit cleanly | Stops are not failures; they are the safety boundary |
