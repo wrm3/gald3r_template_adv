@@ -11,6 +11,34 @@ One connector, 30+ models. Subscription-billed in credits — no per-provider AP
 
 Only use this skill if the user **already pays for a Higgsfield subscription**. The whole value is access to 30+ models behind one auth, billed against credits they're already paying for. Don't push a non-subscriber to subscribe for one project.
 
+## Installation
+
+Requires a Higgsfield subscription (credits are consumed per generation — see cost table below).
+
+**Agent-guided setup (runs automatically on first use):**
+
+1. **Already configured?**
+   Check `.cursor/mcp.json` (Cursor) or run `/mcp` (Claude Code) for a `higgsfield` entry.
+   If present and `select_workspace` is reachable → skip, proceed.
+
+2. **MCP entry missing — wire it:**
+   - **Cursor**: add to `.cursor/mcp.json`:
+     ```json
+     { "higgsfield": { "type": "http", "url": "https://mcp.higgsfield.ai/mcp" } }
+     ```
+     Then open Cursor Settings → MCP and complete OAuth with your Higgsfield account.
+   - **Claude Code**: run in terminal, then complete OAuth in the browser that opens:
+     ```
+     claude mcp add --transport http --scope user higgsfield https://mcp.higgsfield.ai/mcp
+     ```
+     Then run `/mcp` in your session.
+
+3. **After connecting — mandatory**: call `select_workspace` once per session. Generation calls fail silently without it.
+
+> **Cost gate**: Before any `generate_image` or `generate_video` call, quote the estimated credit cost and current balance. Wait for explicit "go". See [ALWAYS quote credit cost](#always-quote-credit-cost-before-generating) below.
+
+**Heads-up:** MCP tools may not appear after a fresh install — restart Claude Code / Cursor if the server shows connected but no tools are visible.
+
 ## Three spokes
 
 The skill does three things — keep it scoped to these:
@@ -18,34 +46,6 @@ The skill does three things — keep it scoped to these:
 1. **Explore models** — what's available, what role each model accepts
 2. **Generate image** — single or batched
 3. **Generate video** — including image→video chains
-
-## Install
-
-**Two ways to connect.** Both end at the same place: an authenticated MCP your session can call.
-
-**Terminal (Claude Code):**
-
-```
-claude mcp add --transport http --scope user higgsfield https://mcp.higgsfield.ai/mcp
-```
-
-Then run `/mcp` in your session and complete OAuth with the Higgsfield account that owns the subscription.
-
-**Claude Desktop app:**
-
-Settings → Connectors → Add custom connector → paste `https://mcp.higgsfield.ai/mcp` → sign in.
-
-**After auth — mandatory step:**
-
-```
-select_workspace
-```
-
-Generation calls fail silently until a workspace is selected. Always run this once at the start of a session.
-
-**Heads-up:** MCP tools may not appear in the running session after a fresh install — restart Claude Code / Desktop if `/mcp` shows higgsfield connected but no tools are visible.
-
-No API keys to manage. No `.env`. The MCP handles auth.
 
 ## ALWAYS quote credit cost before generating
 
@@ -125,6 +125,80 @@ If you omit `duration`, Seedance 1.5 silently defaults to **12 seconds** — 3×
 - **Plus plan:** $39/month, 1000 credits — sweet spot for ad workloads
 - **Top-up packs** ($5 / 100 credits) **expire in 90 days** — don't stockpile
 - Verify exact per-call credit cost in the Higgsfield dashboard before committing to a workflow swap
+
+## Maestro2 Animation Theme Pack Generation
+
+Cloud-based animation content pipeline for Maestro2 using Higgsfield models. Zero local GPU required — uses Seedance 2.0, Kling 2.0, and other cloud models.
+
+### Creative Pipeline (4 stages)
+
+```
+concept prompt
+    ↓
+style frames (image models)    ← Nano Banana Pro, GPT Image 2, Flux
+    ↓
+animation clips (video models) ← Seedance 2.0, Kling 2.0, Hailuo 02
+    ↓
+brand system + Maestro2 theme pack
+```
+
+**Stage 1 — Concept & Style Frames:**
+- Use `generate_image` with `nano_banana_2` or `gpt_image_2` to create 4–6 style reference frames per theme
+- Prompts should establish: color palette, character mood, environment
+- Save style frame `job_id` values — they become the visual anchors for all video calls
+
+**Stage 2 — Animation Clips:**
+- Feed style frame `job_id` directly into `generate_video` as `medias: [{value: job_id, role: "image"}]`
+- **Seedance 2.0**: full multi-role support, best quality. Always pass `duration: 4` (prevents 12s default)
+- **Kling 2.0**: `start_image` role only, excellent character consistency across theme clips
+- **Hailuo 02**: fastest, good for background/ambient loops
+
+**Stage 3 — Context Retention:**
+- Track hex color codes and style descriptors from Stage 1 across all Stage 2 calls
+- Use consistent seed values across a theme pack for visual coherence
+- Store all `job_id` and `rawUrl` values in a per-theme manifest
+
+**Output Convention:**
+```
+G:\gald3r_ecosystem\gald3r_throne\src-tauri\maestro2\themes\{theme_name}\
+    style_frames/        ← PNG stills (rawUrl downloads)
+    animation_clips/     ← video files
+    theme_manifest.json  ← job IDs, model settings, hex palette, prompts used
+```
+
+### 3 Example Theme Styles
+
+**Norse/Viking:**
+- Style frame prompt: `"A Norse warrior hall at dusk, mead tables, torchlight, ash wood beams, muted gold and charcoal color palette, cinematic, dramatic shadows"`
+- Animation prompt: `"Norse warrior drinking from a horn, firelight flickering, slow ambient motion, 4 seconds"`
+- Model: Seedance 2.0 (character consistency), duration 4s
+- Palette: `#8B7355` (ash), `#2C2C2C` (charcoal), `#B8860B` (muted gold)
+
+**Cyberpunk:**
+- Style frame prompt: `"Tokyo backstreet, holographic ad panels, rain on asphalt, neon cyan and magenta, corporate logos in kanji, depth fog"`
+- Animation prompt: `"Rain falling on a neon-lit alley, holograms flickering, ambient city loop, 4 seconds"`
+- Model: Kling 2.0 (sharp neon details), start_image from style frame
+- Palette: `#00FFFF` (cyan), `#FF00FF` (magenta), `#1A1A2E` (dark navy)
+
+**Minimal/Silicon Valley:**
+- Style frame prompt: `"Clean open-plan tech office, morning light through floor-to-ceiling windows, white desks, succulents, minimal nordic design"`
+- Animation prompt: `"Sunlight slowly shifting through a clean tech office, gentle ambient motion, 4 seconds"`
+- Model: Hailuo 02 (smooth ambient loops), or Seedance 2.0 if character needed
+- Palette: `#F5F5F5` (off-white), `#4A90D9` (tech blue), `#2D2D2D` (charcoal)
+
+### Cost Guard for Theme Packs
+
+Before starting a full theme pack:
+- 6 style frames × 3 credits (Nano Banana Pro) = ~18 credits
+- 6 animation clips × Seedance 2.0 @ 4s = ~14.4 credits per theme
+- **Full theme pack estimate: ~33 credits (~$1.65 on Plus plan)**
+- Always quote total before generating; check balance covers full pack
+
+### API Key Setup
+
+If Higgsfield MCP not configured, follow the Installation section above. Key note: `select_workspace` must be called once per session before any generation calls succeed.
+
+---
 
 ## Failure rules
 

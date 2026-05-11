@@ -90,6 +90,20 @@ Automatically detects when a proposed subsystem overlaps with an existing one:
 
 These commands support clean-room research and reverse-spec work. Capture/recon may observe and summarize source behavior, interfaces, workflows, data shapes, and architectural patterns; generated gald3r artifacts must use original wording and local architecture terms, not copied source code, docs prose, prompts, tests, or unique strings. Keep source URL, license, and capture provenance in recon notes; treat source file paths as traceability, not implementation instructions. Adoption requires human approval through `@g-res-review` / `@g-res-apply`.
 
+
+## Similarity Risk Gate
+
+Before APPLY writes any artifacts, the skill checks `similarity_risk` in each selected feature row:
+
+| Risk | Behavior |
+|------|----------|
+| `low` / `medium` | Proceed normally |
+| `high` | Print warning; APPLY continues with flagged tasks |
+| `critical` | **APPLY BLOCKED** — exit with no writes; user must downgrade to `high` or remove the feature |
+
+A risk summary is always printed: `Similarity risk summary: N low, M medium, P high, Q critical`
+
+To unblock a `critical` finding: edit `FEATURES.md` and change `similarity_risk` to `high` (explicitly accepting the risk).
 ## See Also
 - `@g-res-deep` — Analyzes a repo and produces the recon report
 - `@g-res-review` — Review and approve features interactively

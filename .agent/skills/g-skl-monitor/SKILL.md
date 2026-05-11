@@ -117,6 +117,26 @@ Permanently removes the monitor and stops all scheduled checks.
 
 ---
 
+### RECLASSIFY - AI-classify a GitHub repo monitor (T867)
+
+```
+monitor_reclassify(name="vibe-kanban")
+monitor_reclassify(name="coder__code-server", provider="openai")
+monitor_reclassify(name="anthropics__anthropic-sdk-python", force=True)
+```
+
+Fetches the repo's README via GitHub API and calls Claude (default) or OpenAI to
+generate a structured classification: `summary`, `category`, `tags`, `language`,
+`quality_score` (1-10), `quality_rationale`. Stores results in
+`content_monitors.check_state`.
+
+Parameters:
+- `name` — monitor name slug (from `monitor_list`)
+- `provider` — `"anthropic"` (default) or `"openai"`
+- `force` — re-classify even if `ai_summary` already exists (default: `false`)
+
+---
+
 ## Workflow: Adding a new content source to watch
 
 1. Identify the URL and type

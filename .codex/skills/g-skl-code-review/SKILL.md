@@ -21,14 +21,35 @@ Specified files: review those directly
 
 ---
 
-## Step 2: Security Scan (ALWAYS FIRST)
+## Step 2: Security Pass (ALWAYS FIRST)
 
-- **SQL injection**: f-strings or `.format()` in DB queries
-- **XSS**: `innerHTML =` with user-controlled data
-- **Auth**: routes/functions missing auth decorators or guards
-- **Secrets**: hardcoded strings matching API key/token patterns
-- **Input validation**: user input used directly without sanitization
-- **Sensitive data**: PII logged, stored unencrypted, or in URLs
+### OWASP Top 10 Checklist
+
+- [ ] **A01 Broken Access Control** — auth decorators present, ownership checks, no IDOR
+- [ ] **A02 Cryptographic Failures** — secrets in env vars, passwords hashed, HTTPS enforced
+- [ ] **A03 Injection** — parameterized queries, no f-strings/`.format()` in DB or shell calls
+- [ ] **A04 Insecure Design** — deny-by-default logic, no missing threat model for new flows
+- [ ] **A05 Security Misconfiguration** — debug off, security headers set, no default creds
+- [ ] **A06 Vulnerable Components** — new deps audited (`npm audit` / `safety check` / `cargo audit`)
+- [ ] **A07 Auth/Identity Failures** — sessions secure (HttpOnly, Secure, SameSite), rate limits
+- [ ] **A08 Software Integrity Failures** — no `pickle.loads(user_input)`, CI pipeline integrity safe
+- [ ] **A09 Logging/Monitoring Failures** — security events logged, no secrets/PII in logs
+- [ ] **A10 SSRF** — user-provided URLs validated, internal IPs blocked
+
+### STRIDE (architectural changes and new service boundaries only)
+
+- [ ] **S**poofing — identity verification in place for new services/APIs
+- [ ] **T**ampering — data integrity checks, no unsigned/unverified updates
+- [ ] **R**epudiation — audit trail exists for sensitive operations
+- [ ] **I**nformation Disclosure — PII not leaked in logs, errors, or URLs
+- [ ] **D**enial of Service — rate limits and resource caps on unbounded inputs
+- [ ] **E**levation of Privilege — no unintended permission escalation path
+
+### False Positive Annotation
+
+Intentional exemptions: add `# nosec: <justification>` inline or a `# security-exempt: <reason>` comment block above the flagged section. Annotated exemptions are waived in the review report.
+
+> Full reference: `.cursor/skills/g-skl-code-review/reference/security_checklist.md`
 
 ---
 
@@ -83,6 +104,11 @@ Specified files: review those directly
 
 ## 🔴 Security (CRITICAL — block merge)
 - [Issue]: [File:line] — [Fix]
+
+## 🟠 Security Findings (High/Medium/Low)
+- **High** [A03 Injection]: [File:line] — [Fix]
+- **Medium** [A05 Misconfiguration]: [File:line] — [Fix]
+- **Low** [A09 Logging]: [File:line] — [Fix]
 
 ## 🟠 Quality Issues (should fix)
 - [File] is NNN lines — extract [what] to [where]

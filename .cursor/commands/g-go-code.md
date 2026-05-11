@@ -17,6 +17,20 @@ Allowed implementation readiness checks are limited to smoke/unit-style evidence
 
 The output may include a review handoff and checkpoint SHA. It must not perform the review. Use `g-go` / `g-go --swarm` for implement-plus-auto-review, or `g-go-review` / `g-go-review --swarm` for review-only.
 
+## ⚙️ Pure Executor Contract
+
+`g-go-code` is a **pure executor** — it receives a task spec routed by the `g-go` coordinator and
+produces implementation output. It does **not** self-route to other agents, does **not** spawn
+reviewers, and does **not** write shared `.gald3r/` coordination surfaces directly.
+
+**Bucket mode** (received via swarm briefing from the coordinator):
+- **`parallel`** — this bucket has no cross-bucket dependencies; implement independently and return results.
+- **`sequential`** — this bucket depends on upstream bucket handoff data; read the upstream output before implementing.
+
+Bucket agents return to the coordinator: patch bundle, generated artifacts, test/lint evidence,
+changed-file inventory, and proposed Status History rows. The coordinator performs **all** shared
+writes (TASKS.md, BUGS.md, task files, CHANGELOG.md, generated prompts, parity output, commits).
+
 ---
 
 
@@ -75,6 +89,35 @@ Also re-run the **Gald3r Housekeeping Commit Gate** with `-Mode post-write -Appl
 
 
 Immediately before the coordinator merges bucket results into the primary checkout, updates shared `.gald3r` indexes or task/bug files as coordinator-owned writes, touches `CHANGELOG.md`, or creates checkpoint / review-result commits: **re-run** `git status --short` on the **orchestration root and every other repository root in the computed touch set** (steps 1 + 3 + 4). For `--swarm` runs, if unrelated dirty paths appear in **any** of those roots during parallel bucket work, **fail closed** — do not apply those shared writes; keep patches, artifacts, and evidence; report **per-root** blockers using the same blocker family as checkpoint and review-result commits.
+
+## Session-Start: Load Active Goal (Ralph Loop)
+
+> Fires immediately after safety gates pass, before implementation begins. If no active goal is set, this section is a no-op.
+
+If `.gald3r/config/ACTIVE_GOAL.md` exists:
+
+1. Read the file. Parse its YAML frontmatter (`description`, `linked_task`, `set_at`, `turn_budget`, `turns_consumed`).
+2. Inject into working context as the prefix:
+   ```
+   CURRENT GOAL: <description> (turn <turns_consumed>/<turn_budget>, task T{id})
+   ```
+3. Increment `turns_consumed` by 1 and write the updated value back to `ACTIVE_GOAL.md`.
+4. If `turns_consumed >= turn_budget`:
+   - Surface `🎯 Goal turn budget exhausted — pausing for user direction.`
+   - Stop the run cleanly. The user must extend the budget (`@g-goal <description>` to reset) or clear the goal (`@g-goal clear`).
+
+If `--with-goal T{id}` was passed in `$ARGUMENTS`:
+
+1. Treat as if `@g-goal --from-task T{id}` were just run: read `.gald3r/tasks/task{id}_*.md` (active or archive), set `ACTIVE_GOAL.md` from the task title, then proceed with `tasks {id}` as the work filter.
+2. Set `linked_task: T{id}` and the description from the task `title:` field. Default `turn_budget: 50`.
+
+If no `ACTIVE_GOAL.md` exists and no `--with-goal` flag is present, proceed without a goal lock (normal operation).
+
+**Goal-aligned AC gate**: after each AC-gate iteration (step b2 below), the implementing agent self-checks: "Did this action advance `<description>`?" If not, re-anchor on the goal in the next reasoning step. This is a soft drift-correction — not a hard block. If drift is severe (3+ consecutive AC-gate iterations failing the alignment check), surface a `🎯 Goal drift detected` notice in the session summary and consider invoking `@g-goal status` to verify the lock is current.
+
+See `g-goal` command (parity across all 6 IDE platforms) for the full Ralph loop specification.
+
+---
 
 ## Execution Protocol
 
@@ -159,6 +202,35 @@ For each queued task that has `harvested_from:` set:
 
 > **`--override-harvest-check` flag** — When this flag is passed to `@g-go-code`, replacement-type harvested tasks are treated as if `harvest_approved: true` and proceed without blocking. Use for batch runs after explicit human review of the harvest intake report.
 
+### Step 0: Generate Locked Implementation Plan (Manus Planning Gate — T879)
+
+**Runs after work queue is finalized, before any file edits or worktree creation.**
+
+Skip this step only when `--skip-plan` is explicitly passed (trivial single-file tasks). `--skip-plan` is not the default and must be justified in the session summary.
+
+For each queued task or bug, generate a locked implementation plan and append it to the task/bug file under `## Implementation Plan`. The plan locks intent before code touches the filesystem. Any mid-implementation divergence must be documented as a `DEVIATION:` note — do not silently rewrite history.
+
+**Plan template** (append to the task file):
+
+```markdown
+## Implementation Plan
+**Objectives:** [each Acceptance Criterion reworded as a concrete objective]
+**Constraints:** [active CONSTRAINTS.md constraints relevant to this task's subsystems — list by ID and 1-line summary]
+**Steps:**
+1. [first concrete implementation step — name the file and operation]
+2. [second step]
+3. [continue as needed]
+**Success Criteria:** [mirrors the AC checkboxes verbatim]
+**Lock Status:** LOCKED
+**Locked at:** YYYY-MM-DD
+```
+
+**Lock rules:**
+- Write the plan, set `Lock Status: LOCKED`, then proceed to coding. Never skip writing the plan section.
+- If implementation must deviate from a planned step, append `DEVIATION: {reason}` under the affected step and continue — do not stop, do not silently rewrite.
+- After implementation, `g-go-review` reads `## Implementation Plan` and compares against the actual diff to flag undocumented divergences.
+- Use `g-skl-plan` `LOCK_PLAN` operation to generate the plan (reads AC + active CONSTRAINTS.md constraints).
+
 ### 3. Pre-Create Coding Worktrees (Before Editing)
 
 After speccing claims are resolved and before any implementation file changes or primary-checkout status writes, isolate every queued item with the T170 helper:
@@ -184,6 +256,54 @@ For each item:
 
 **a)** Read the task/bug file — understand objective and acceptance criteria
 **b)** If the item is a bare `[ ]` task with no complete spec, run `g-skl-tasks` `CLAIM-FOR-SPEC` → `WRITE-SPEC` → `PROMOTE-SPEC` first; skip non-expired `[📝]` claims. Then create/reuse the coding worktree and implement the solution inside that worktree
+
+**b0) Impact Scan + Code-Graph Context Query (T921 + T874b)** — before writing any file, run the cross-file impact analysis to understand blast radius, and (when enabled) query the pre-built code graph to seed implementer context with ~200 tokens instead of grepping linearly.
+
+**b0.1 Impact Scan (T921, default-on)**
+
+```powershell
+.\scripts\gitnexus_impact.ps1 -File "{file_to_be_modified}" -Depth 2 -Json
+```
+
+Review the returned `affected_files` list. If the impact scan reveals > 3 transitively dependent files, add them to the implementation context window before writing. This prevents cross-file breakage ("agent edits one file and breaks another"). Non-blocking: proceed even if the script returns no results or falls back to the ripgrep backend.
+
+**b0.2 Graphify Code-Graph Query (T874b, opt-in)**
+
+Read `.gald3r/config/AGENT_CONFIG.md` → `context_reduction_mode.graphify_b0_enabled`. When `true`, the coordinator runs a single graph query before bucket spawn (or before single-agent implementation), captures the result as a small context block (typical ≤200 tokens), and passes it to implementer subagents as part of the briefing. When `false` (safe default), this step is skipped and Step b0.1 alone gates the impact context.
+
+Backend fallback order (g-skl-graphify §Backends):
+
+1. **gitNexus MCP** (preferred) — `gitnexus.context` / `gitnexus.impact` / `gitnexus.cypher` for symbol-level call/import resolution. Already wired in `.mcp.json` per T842.
+2. **graphify CLI** — when gitNexus is unavailable, run `graphify query --root . --symbol {target}` against the local `.graphify/` index. See g-skl-graphify §SETUP for indexing guidance.
+3. **tree-sitter + ripgrep fallback** — when neither backend is reachable, fall back to the legacy grep-based context-prep (Step b0.1 + ad-hoc reads). Do NOT halt the run.
+
+Failure modes (never halt the run):
+
+- **Missing backend** — `.mcp.json` has no `gitnexus` entry AND `graphify` CLI not on PATH AND no `.graphify/` index → log "graphify b0 skipped: no backend reachable" and fall through to legacy.
+- **Graph staleness** — index older than the orchestration root's last commit → emit a warning; still use the result (advisory) and append a note recommending `graphify update` or `gitnexus group_sync`.
+- **Query timeout** (>5s) — abort the query, log "graphify b0 timeout — fell back to legacy", proceed.
+- **Empty result** — query returned no symbols / no edges → log "graphify b0 empty — fell back to legacy"; proceed with Step b0.1 context.
+
+The b0.2 query is **advisory**, **non-blocking**, and **single tool call** (g-rl-37 "Think in Code" — one query, ≤200 tokens of returned context). Operators opt in by flipping `graphify_b0_enabled: true` in `AGENT_CONFIG.md`.
+
+**b1) Post-Write Lint Gate (T919)** — after each Write or StrReplace tool call, run the language-appropriate syntax check:
+
+```powershell
+.\scripts\gald3r_post_write_lint.ps1 -FilePath "{relative_path_to_written_file}" -ProjectRoot . -Json
+```
+
+| Extension | Lint command |
+|-----------|-------------|
+| `.py` | `python -m py_compile {file}` |
+| `.json` | `python -c "import json; json.load(open('{file}'))"` |
+| `.yaml` / `.yml` | `python -c "import yaml; yaml.safe_load(open('{file}').read())"` |
+| `.toml` | `python -c "import tomllib; tomllib.load(open('{file}', 'rb'))"` |
+| `.ts` / `.tsx` / `.js` | `npx tsc --noEmit` (when tsconfig present) |
+| `.ps1` | PowerShell AST parser |
+| Other | Pass silently |
+
+If the script exits non-zero (`exit 2` = syntax error), **stop and fix the file before proceeding**. Do not advance to the next write. Treat a lint failure the same as a TypeScript compile error — it blocks continuation.
+
 **b2) AC gate** — before moving on, walk every `- [ ]` acceptance criterion in the task spec:
   - Is this criterion now satisfied? Check the actual files, not just intent.
   - Any unmet criterion → return to **(b)** and address it.
@@ -207,11 +327,68 @@ For each item:
 > **IMPORTANT**: Mark every completed item `[🔍]`, never `[✅]`.
 > `[✅]` requires a separate agent session running `@g-go-review`.
 
+### 4a. Mid-Task Checkpoint (Mandatory, Every N Major Operations)
+
+**`CHECKPOINT_TOOL_CALL_INTERVAL`**: Default **20** major operations (file reads, shell commands, file writes). Override via `.gald3r/config/AGENT_CONFIG.md` key `checkpoint_interval`.
+
+**Trigger**: After every N major tool operations within a single task's implementation, pause for a brief self-evaluation **before continuing**.
+
+**Self-evaluation covers:**
+1. **AC alignment** — How many acceptance criteria are satisfied vs. remaining? Is current trajectory sufficient?
+2. **Scope check** — Am I within the declared `subsystems:` and `workspace_repos:` boundaries? Any creep?
+3. **Blocking obstacles** — Anything discovered that may prevent completing this task? (missing files, unclear spec, external dep)
+4. **Token budget** — Rough estimate of remaining context; flag if >75% consumed with significant work still remaining.
+
+**Output formats:**
+
+Healthy:
+```
+## Mid-Task Checkpoint (operation N/20): HEALTHY
+AC progress: {X}/{total} satisfied. No blockers. Continuing.
+```
+
+Needs correction:
+```
+## Mid-Task Checkpoint (operation N/20): NEEDS_CORRECTION
+⚠️ CHECKPOINT: {issue description}
+AC progress: {X}/{total} satisfied. Blocker: {description}.
+Correction plan: {1-2 sentences}.
+```
+
+**Task file audit trail** — Before continuing, append to the task's `## Status History`:
+```
+| YYYY-MM-DD | in-progress | in-progress | CHECKPOINT {N}: {1-line summary}. AC: {X}/{total}. Blockers: {none|description}. Continuing. |
+```
+
+**Rules:**
+- Checkpoint is **mandatory** — not optional. Fires every N major operations with no exceptions.
+- A task completed with ≥1 checkpoints must show those rows in `## Status History` before being marked `[🔍]`.
+- If checkpoint yields `NEEDS_CORRECTION` with an unresolvable blocker, surface `⚠️ CHECKPOINT: [issue]` in the next message and log as Blocked in step 6.
+- In `--swarm` mode, each bucket agent runs independent checkpoints; the coordinator does not aggregate them.
+
 ### 5. Docs Check (Per Task)
 
 After each task, ask: does this add/remove/change user-facing behavior?
 - **YES** → Append entry to `CHANGELOG.md` (root); update `README.md` if relevant section exists
 - **NO** (internal refactor only) → skip
+
+### 5a. Auto-Learn Extraction (Per Task)
+
+After the docs check, run the auto-learn extraction for each task moved to `[🔍]`:
+
+1. **Read the task's `## Status History`** and implementation notes from the task file.
+2. **Extract**: "Given this implementation, what architectural decision, pattern, or watch-out should the next agent know?" Produce 0–3 candidate facts. Skip entirely if no meaningful insight emerges.
+3. **Dedup**: read `.gald3r/learned-facts.md`. Skip any candidate fact that is a substring match (case-insensitive, first 80 chars) of an existing entry.
+4. **Append** novel facts with the format:
+   ```
+   - [YYYY-MM-DD] {extracted_fact} (context: T{task_id})
+   ```
+   Append under the most appropriate heading (`## Architecture & Conventions`, `## Recurring Preferences`, or `## Watch-Outs & Gotchas`). Create the section if missing.
+5. **Count new facts** and include in the handoff summary: `🧠 {N} new fact(s) learned from T{task_id}` (omit if 0).
+6. **MCP chain** (when backend is available): call `memory_capture_session` with the extracted facts as the session content.
+
+> **Skip silently** when `.gald3r/learned-facts.md` does not exist — note in summary as `🧠 learned-facts.md not found — skipped`.
+> **Manual `/g-learn` still works** as before; this step does not replace it.
 
 ### 6. Question & Blocker Collection
 
@@ -318,6 +495,9 @@ After the final shared-write pass, create the checkpoint commit before review. I
 
 ### Decisions Made This Session
 {append these to .gald3r/DECISIONS.md}
+
+### 🧠 Auto-Learn Summary
+{N} new fact(s) appended to `.gald3r/learned-facts.md` (or "none / file not found").
 
 ### Handoff
 {N} task(s) / {M} bug(s) moved to [🔍].

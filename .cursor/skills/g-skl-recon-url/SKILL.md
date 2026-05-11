@@ -24,6 +24,31 @@ This capture skill may store source material in the vault for research, provenan
 
 ---
 
+## Search Backend: SearXNG (T920)
+
+When `SEARXNG_ENABLED=true` in `.env`, the MCP plugin `tools/plugins/search.py` routes all search queries to the local SearXNG instance at `http://localhost:8094` before falling back to external APIs. This skill is SearXNG-aware.
+
+| Condition | Backend |
+|-----------|---------|
+| `SEARXNG_ENABLED=true` + service running | `http://localhost:8094/search` (no API key needed) |
+| `SEARXNG_ENABLED=false` or service down | Existing web search (Brave/DDG/Perplexity) |
+
+**Start SearXNG:**
+```bash
+docker compose --profile searxng up -d
+# Access: http://localhost:8094
+```
+
+Set in `.env`:
+```
+SEARXNG_ENABLED=true
+SEARXNG_SECRET_KEY=<generate: openssl rand -hex 32>
+```
+
+SearXNG aggregates 70+ search engines (Google, Bing, DuckDuckGo, Brave, arXiv, GitHub, etc.) with no rate limits or API key requirements.
+
+---
+
 ## Operation: INGEST_URL
 
 Ingest a single URL.

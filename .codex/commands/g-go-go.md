@@ -47,6 +47,8 @@ Asking "Continue?" "Which next?" "Looks like X — proceed?" mid-run is a **viol
 | Review independence | one fresh reviewer agent per implementation checkpoint | non-overrideable |
 | Backend dependency | file-first; `gald3r_valhalla` optional | tasks declaring backend dependency in their YAML are deferred when backend down |
 | Verification retry ceiling | 3 FAIL cycles → `[🚨]` (T047) | non-overrideable |
+| Auto-merge target | `dev` (B+C pattern — Bot handles dev, Contributor controls main) | `g-go-go --target-branch main` to ship PASS items directly to main |
+| Auto-merge behavior | enabled by default after every PASS verdict | `g-go-go --no-auto-merge` to preserve old `[MERGE-BLOCKED]` behavior |
 
 `g-go-go` accepts the same `$ARGUMENTS` filters as `g-go` (`tasks N,M`, `bugs BUG-NNN`, `subsystem ...`, `bugs-only`, `tasks-only`) plus the autopilot knobs above.
 
@@ -265,7 +267,7 @@ Never crash on optional backend failure; deferring affected work and continuing 
 | **TASKS.md dual-format scan (MANDATORY)** — TASKS.md contains tasks in two formats that MUST both be scanned: (1) bullet-list `- [STATUS] **Task NNN**:...` and (2) markdown-table `\| [STATUS] \| [NNN](path) \| title \| type \| deps \|`. A grep that only matches the bullet format silently drops the entire table backlog. Before declaring "no runnable work", verify both patterns were searched. Missing table-format tasks and claiming the queue is empty is a spec violation equivalent to a complexity-aversion stop. | Queue completeness — prevents silent task starvation |
 | **Dependency resolution includes archive (MANDATORY)** — when checking condition 4 (all dependencies resolved), if a dependency task file is NOT found in `.gald3r/tasks/task{id}_*.md`, ALSO check `.gald3r/archive/tasks/*/task{id}_*.md`. A task found in the archive with `status: completed` (or `status: verified`) counts as a fully satisfied dependency. Never treat a missing-in-active-tasks dependency as unresolved without first checking the archive. Marking a task as blocked because a dep "file not found" when that dep lives in the archive is a spec violation equivalent to a complexity-aversion stop. | Prevents archived completed deps from silently blocking downstream chains |
 | **Controller-only fallback** — when all workspace member repos block, retry `source_only`/`docs_only` tasks before stopping | Never stop while controller-only work remains |
-| **Auto-merge member repo branches on PASS (MANDATORY)** -- after the review-result commit for each PASS item, run `gald3r_worktree.ps1 -Action MergeToMain -RepoPath <member_path> -TaskId {id} -Apply` in dependency order (lowest ID first); on success the helper FF-merges the code branch into member main and deletes both code + review branches and worktree folders; on merge-blocked or member-dirty: preserve branch, log `[MERGE-BLOCKED]` / `[MERGE-SKIPPED-DIRTY]` in session summary as human action item; never run MergeToMain for FAIL items | Eliminates manual branch merge ceremony after every autopilot run |
+| **Auto-merge member repo branches on PASS (MANDATORY)** -- after the review-result commit for each PASS item, run `gald3r_worktree.ps1 -Action MergeToMain -RepoPath <member_path> -TaskId {id} -TargetBranch dev -Apply` in dependency order (lowest ID first); default target is `dev` (B+C pattern — Bot handles dev, Contributor controls main); override with `--target-branch main` to ship directly to main; on success the helper FF-merges the code branch into `dev` (or override target) and deletes both code + review branches and worktree folders; log `[AUTO-MERGED→dev]` in session summary; on merge-blocked (conflict), missing target branch, or member-dirty: preserve branch, log `[MERGE-BLOCKED]` / `[MERGE-SKIPPED-DIRTY]` as human action item (fallback, not default); pass `--no-auto-merge` to skip entirely and use old `[MERGE-BLOCKED]` behavior; never run auto-merge for FAIL items | Eliminates manual branch merge ceremony after every autopilot run — B+C pattern keeps human in control of dev→main promotion |
 | Autopilot composes existing safe primitives — never bypasses any gate | One command, same safety contract |
 | Implementation agents NEVER self-verify their own work | Adversarial independence preserved across all loop iterations |
 | Hard stops emit final summaries and exit cleanly | Stops are not failures; they are the safety boundary |
@@ -289,6 +291,9 @@ Never crash on optional backend failure; deferring affected work and continuing 
 @g-go-go tasks 220, 222, 223
 @g-go-go bugs-only
 @g-go-go subsystem multiple-ide-platform-parity
+@g-go-go --target-branch main           # ship PASS items directly to main instead of dev
+@g-go-go --no-auto-merge                # disable auto-merge; reviewer leaves [MERGE-BLOCKED] for human
+@g-go-go --target-branch staging        # merge to a custom branch instead of dev
 ```
 
 The defaults (workspace mode, 12-iteration budget, 30-minute heartbeat) are tuned for a multi-hour overnight or background run. Use `--budget 3` and `--heartbeat 5m` for quick autopilot bursts.

@@ -239,9 +239,9 @@ verbatim_excerpt_policy: tiny_attributed_excerpts_only
 
 ## Feature Catalog
 
-| ID | Feature | Effort | Status | Notes |
-|----|---------|--------|--------|-------|
-| F-001 | Feature Name | S | [ ] pending | brief note |
+| ID | Feature | Effort | Sim. Risk | Status | Notes |
+|----|---------|--------|-----------|--------|-------|
+| F-001 | Feature Name | S | medium | [ ] pending | brief note |
 
 ---
 

@@ -48,6 +48,7 @@ Specs: [N] in specifications_collection/ (newest: YYYY-MM-DD) [or "none"]
 🧠 Learned Facts: [N] project facts | [M] global facts  (run /g-learn review to see them)
 Experiments: [summary from experiments/EXPERIMENTS.md if it has active entries]
 🛡️ Constraints: [N] active — run @g-constraint-check before completing any task
+⚠️ Release sync: N CHANGELOG version(s) missing release file — run @g-release-sync  ← only show when gap count > 0
 ```
 
 Learned fact counts: count `-` bullet points in `.gald3r/learned-facts.md` (skip headers and empties).
@@ -70,6 +71,12 @@ This prevents architectural drift and ensures changes respect subsystem boundari
 **Step 1: Goals Check**
 - PROJECT.md missing goals content or has `{Goal name}` placeholders → auto-generate from PROJECT.md mission / PLAN.md
 
+**Step 1.5: Version Check** (optional, non-blocking)
+- Skip if `disable_version_check: true` in `.gald3r/config/AGENT_CONFIG.md`
+- Read `gald3r_version` from `.gald3r/.identity`; attempt a 3-second fetch of the version feed (configured `version_feed_url` or `https://api.github.com/repos/gald3r/gald3r/releases/latest`)
+- If fetch succeeds and installed version < latest: `💡 gald3r update available (v{current} → v{latest}) — run @g-update`
+- If fetch fails or times out: skip silently (no error, no delay)
+
 **Step 2: Task Sync**
 - Compare TASKS.md entries to `.gald3r/tasks/` (v3 source of truth; sequential task IDs)
 - Legacy v2: completed tasks may still be under `.gald3r/phases/phase*/` until migrated
@@ -79,6 +86,12 @@ This prevents architectural drift and ensures changes respect subsystem boundari
   ⚠️ Re-work: Task {id} previously failed verification on {Timestamp}: {Message}
   ```
   This alerts the implementing agent that prior attempts failed and what to watch for.
+
+**Step 2b: Release Sync Check** (C-023)
+- Read `CHANGELOG.md`, count all `## [x.x.x]` version headers (skip `## [Unreleased]`)
+- For each, check if `.gald3r/releases/` has a file whose name contains the version (e.g., `v1-5-0` for `[1.5.0]`)
+- Gap count > 0 → surface: `⚠️ N CHANGELOG version(s) missing release file — run @g-release-sync`
+- Gap count == 0 → display: `✅ CHANGELOG/releases in sync`
 
 **Step 3: Plan / PRD / Legacy Phase Sync**
 - Verify `.gald3r/PLAN.md` and `.gald3r/features/` exist for delivery projects

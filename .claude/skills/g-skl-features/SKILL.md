@@ -391,3 +391,78 @@ When `g-skl-features STATUS` is called and any features have `cross_project_ref`
 ```
 
 Peer statuses are cached from the last PCAC sync; `[unknown]` if never synced.
+
+---
+
+## Operation: CONSOLIDATE (dedup and merge staging features)
+
+**Usage**: `CONSOLIDATE --scan | --apply [--min-score N]`
+
+Two-phase operation for harvest-heavy registries where `features/` staging has accumulated semantic duplicates (e.g., multiple "agent memory" features or "kanban board" variants from 80+ harvest passes).
+
+### Phase 1: SCAN (analyze overlap, no writes)
+
+`CONSOLIDATE --scan [--min-score 60]`
+
+1. **Load all `status: staging` feature files** from `.gald3r/features/**/*.md`
+2. **Compute pairwise overlap scores** for each pair using:
+   - Keyword intersection on title words (case-insensitive, stop words removed)
+   - Synonym detection: "agent memory" ≈ "session memory", "kanban" ≈ "board" ≈ "task board"
+   - `harvest_sources:` intersection ratio
+   - `subsystems:` intersection ratio
+   - Combined score = weighted average (title 50%, synonyms 20%, harvest 15%, subsystems 15%)
+3. **Filter pairs** with `score ≥ min-score` (default 60)
+4. **Output similarity report** — sorted highest score first:
+
+```
+CONSOLIDATE SCAN REPORT — YYYY-MM-DD
+─────────────────────────────────────────────────────────
+Pair #1  [score: 87]
+  A: feat-042 "Agent Session Memory" (staging, 3 approaches, harvest: smfs, yt-abc)
+  B: feat-091 "Persistent Agent Memory Across Sessions" (staging, 2 approaches, harvest: yt-abc)
+  Title overlap: "agent", "memory", "session" (3 keywords)
+  Harvest overlap: yt-abc (shared)
+  → Merge candidate: keep feat-042, retire feat-091
+
+Pair #2  [score: 72]
+  A: feat-044 "Kanban Task Board" (staging, 1 approach)
+  B: feat-088 "Visual Task Board UI" (staging, 4 approaches)
+  Title overlap: "task", "board" (2 keywords + synonym)
+  → Merge candidate: keep feat-044, retire feat-088
+─────────────────────────────────────────────────────────
+Found N merge candidates (≥60 score). Edit this report:
+  Mark approved pairs with [MERGE] — others skipped on --apply.
+  Run: CONSOLIDATE --apply to execute approved merges.
+```
+
+5. **Save report** to `.gald3r/reports/consolidate_scan_YYYYMMDD.md` for human review and approval marking
+
+### Phase 2: APPLY (execute approved merges)
+
+`CONSOLIDATE --apply`
+
+1. **Read** `.gald3r/reports/consolidate_scan_YYYYMMDD.md` (most recent, by date)
+2. **For each `[MERGE]`-approved pair** (canonical = lower feat-NNN ID):
+   - Read both feature files
+   - **Merge `## Collected Approaches`**: append all rows from retired file not already in canonical (deduplicate by source+approach text)
+   - **Merge `harvest_sources:`** YAML array: union of both lists
+   - **Merge `subsystems:`** YAML array: union of both lists
+   - **Append** `## Merge Log` section to canonical file:
+     ```markdown
+     ## Merge Log
+     | Date | Retired ID | Retired Title | Approaches Absorbed |
+     |------|-----------|---------------|---------------------|
+     | YYYY-MM-DD | feat-NNN | "Title" | N |
+     ```
+   - **Add redirect note** to top of retired file body: `> Merged into [feat-NNN](path) on YYYY-MM-DD. This file is archived.`
+   - **Update retired file YAML**: `status: archived`
+   - **Remove retired row** from `FEATURES.md` index `### Staging` section
+3. **Output**: `CONSOLIDATE APPLY complete: N merges executed, N approaches absorbed, N files retired`
+
+### Safety Rules
+
+- **Only merges `status: staging`** — specced/committed/shipped features are never touched
+- Canonical is always the **lower feat-NNN** (preserves chronological order)
+- Retired files are **never deleted** — only marked `archived` with a redirect note
+- `--apply` without a scan report present → error: "Run CONSOLIDATE --scan first"
+- **Human must mark `[MERGE]`** in the scan report — agent does NOT auto-approve any pairs

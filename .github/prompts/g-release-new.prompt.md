@@ -13,3 +13,5 @@ Creates `.gald3r/releases/release{NNN}_{slug}.md` and appends a row to `RELEASES
 - `target_date` defaults to (most-recent target_date + `cadence_days`); falls back to (today + cadence) for the first release
 - `cadence_days` defaults to 14 (biweekly)
 - Status starts at `planned`
+
+**Before publishing a release:** run a STRIDE threat model check on any new API surfaces, authentication changes, or data-handling code included in this release. Reference: `@g-skl-code-review` security pass (OWASP Top 10 + STRIDE categories). Document findings in the release file under a `## Security Review` section; mark as `N/A` if the release contains no API/auth/data changes.

@@ -18,6 +18,9 @@ Before creating a skill, gather essential information from the user about:
 4. **Key domain knowledge**: What specialized information does the agent need that it wouldn't already know?
 5. **Output format preferences**: Are there specific templates, formats, or styles required?
 6. **Existing patterns**: Are there existing examples or conventions to follow?
+7. **Paid/OAuth service?** Does this skill wrap an API, MCP server, or service that requires authentication or charges per use?
+   - **Yes** → the skill MUST include a `## Installation` section following the Skill-as-Installer pattern (see below)
+   - **Credit-billed** → the skill MUST also include a Cost Confirmation gate requiring explicit user approval before each billable call
 
 ### Verbatim text from the user
 
@@ -201,6 +204,35 @@ Match specificity to the task's fragility:
 | **High** (text instructions) | Multiple valid approaches, context-dependent | Code review guidelines |
 | **Medium** (pseudocode/templates) | Preferred pattern with acceptable variation | Report generation |
 | **Low** (specific scripts) | Fragile operations, consistency critical | Database migrations |
+
+---
+
+## Skill-as-Installer Pattern (for paid/OAuth services)
+
+When the skill wraps a paid or OAuth-gated service, generate an `## Installation` section using this three-state template:
+
+```markdown
+## Installation
+
+Requires [ServiceName] [account / subscription tier].
+
+**Agent-guided setup (runs automatically on first use):**
+
+1. **Configured?** — check `.cursor/mcp.json` (Cursor) or `.mcp.json` (Claude) for `"service-name"` → skip if present
+2. **Key found?** — check env `SERVICE_API_KEY` (or `~/.config/service/token`) → write MCP entry, continue
+3. **Not set up?** — open `Start-Process "https://service.com/api-keys"` (Win) / `open "..."` (macOS),
+   prompt user to paste key, then write entry to `.cursor/mcp.json` / `.mcp.json`
+
+> **Cost gate (credit-billed services only):** before each billable call, quote model + settings,
+> estimated cost, current balance, and projected balance after. Wait for explicit "go".
+```
+
+**Rules:**
+- State 1 check MUST run first — never re-prompt a configured user
+- State 3 browser open uses Shell tool (`Start-Process` on Windows, `open` on macOS/Linux)
+- Cost gate is non-negotiable for any service that charges per call / per generation
+
+See `higgsfield` skill for the reference implementation.
 
 ---
 
@@ -476,6 +508,58 @@ Format feedback as:
 - For detailed coding standards, see [STANDARDS.md](STANDARDS.md)
 - For example reviews, see [examples.md](examples.md)
 ```
+
+---
+
+## Cost-Guard Pattern (T844)
+
+Skills that call paid external APIs (image generation, video generation, LLM inference, third-party services) MUST surface an estimated cost and ask for explicit confirmation before executing. This prevents surprise charges.
+
+### Standard Cost-Guard Template
+
+Inject this block in your SKILL.md for any credit-billed operation:
+
+```markdown
+## Cost Confirmation Gate
+
+Before calling [Service], always surface:
+
+> "About to [describe operation] using [Service/Model] — estimated cost: [~N credits / $X].
+> Continue? (**y** = proceed · **n** = cancel · **options** = see cheaper alternatives)"
+
+Wait for explicit confirmation. If user says **n** or hesitates → offer the Negotiate-Down flow.
+```
+
+### Negotiate-Down Flow
+
+When a user hesitates or declines, offer cheaper alternatives before cancelling:
+
+```markdown
+## Cheaper Alternatives
+
+If user is cost-conscious, offer in this order:
+1. Lower resolution / shorter duration (e.g., 720p → 480p, 10s → 5s)
+2. Cheaper model tier (e.g., standard → fast)
+3. Smaller batch size (generate 1 instead of 4)
+4. Cached/similar result from last generation
+
+Present: "Here are cheaper options: [list]. Which would you prefer?"
+```
+
+### When to Apply This Pattern
+
+- Any MCP tool that charges credits per call (Higgsfield, image gen APIs, video gen, etc.)
+- Any LLM inference that costs money per token (non-free tier)
+- Any batch operation with per-unit billing
+- **Not needed** for free-tier tools, local models, or tools with unlimited subscription plans
+
+### Checklist for Cost-Guarded Skills
+
+- [ ] Cost estimate shown BEFORE the API call
+- [ ] Explicit user confirmation required (y/n)
+- [ ] Negotiate-down alternatives offered on hesitation
+- [ ] Balance/quota check performed when API supports it
+- [ ] Cost estimate included in the cancellation message ("Cancelled — no credits used")
 
 ---
 

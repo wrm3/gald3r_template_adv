@@ -170,6 +170,7 @@ For each `[🕵️]` task claimed by this verifier:
   - If `review_isolation_mode: worktree`, inspect files under `review_worktree_path`.
   - If `review_isolation_mode: snapshot`, inspect files under `review_snapshot_path` read-only.
 **b2) Workspace boundary check** — run `g-skl-workspace` ENFORCE_SCOPE against changed paths and the task/bug routing metadata; unknown manifest repo IDs, undeclared member writes, docs-only source changes, or member writes without manifest permission fail the item.
+**b3) Security pass** — for tasks that touch web/API/auth/data/integration code, apply the OWASP Top 10 checklist from `g-skl-code-review` Step 2 to changed files. For tasks adding new services, cross-process boundaries, or significant architectural changes, apply STRIDE. Security findings are rated **Critical / High / Medium / Low**. Report each finding with OWASP/STRIDE category, file:line, and recommended fix. Code annotated with `# nosec: <justification>` or `# security-exempt: <reason>` is waived. Any Critical or High finding → flag as unmet criterion (FAIL).
 **c) Score PASS or FAIL per criterion**
 **d) Bug check during review** — if you encounter a bug not covered by the task's ACs:
   - Determine: introduced by this task? → flag as unmet criterion → task FAIL
@@ -206,6 +207,20 @@ For each `[🕵️]` task claimed by this verifier:
   - **YES** → append entry to `CHANGELOG.md` under `[Unreleased]`; update `README.md` if a relevant section exists
   - **NO** (internal refactor, task file edits, bug fixes with no interface change) → skip
   - Refer to `g-rl-26-readme-changelog.mdc` for what qualifies and where to update
+
+**g) Auto-Learn Extraction** (fires after each PASS verdict and docs check; also fires for `[🚨]` items):
+
+1. **Read the task's `## Status History`** and implementation notes from the task file.
+2. **Extract**: "What architectural decision, pattern, or warning should the next agent know from this verified task?" Produce 0–3 candidate facts. Skip entirely if nothing meaningful emerges.
+3. **Dedup**: read `.gald3r/learned-facts.md`; skip candidates already present (case-insensitive substring match, first 80 chars).
+4. **Append** novel facts: `- [YYYY-MM-DD] {fact} (context: T{task_id})` under the most appropriate section heading (`## Architecture & Conventions`, `## Recurring Preferences`, or `## Watch-Outs & Gotchas`). Create section if missing.
+5. **Failure trajectory** (fires for `[🚨]` items — 3+ FAIL rows — instead of standard extract):
+   - Generate a failure-pattern learning: "T{task_id} reached [🚨] after {N} review attempts. Recurring failure: {brief summary of repeated FAIL reason}."
+   - Append under `## Watch-Outs & Gotchas`.
+6. **Count and include** in the review session summary: `🧠 {N} new fact(s) learned` (omit if 0).
+7. **MCP chain** (when backend available): call `memory_capture_session` with the extracted facts.
+
+> **Skip silently** when `.gald3r/learned-facts.md` does not exist — note as `🧠 learned-facts.md not found — skipped`.
 
 **Per-task output format:**
 ```
@@ -271,6 +286,9 @@ Total: 3 PASS / 2 FAIL  (Tasks: 2P/1F  |  Bugs: 1P/1F)
 ### Skipped (Implemented This Session)
 - Task #Z: left at [🔍] — cannot self-review
 - BUG-NNN: left at [🔍] — cannot self-review
+
+### 🧠 Auto-Learn Summary
+{N} new fact(s) appended to `.gald3r/learned-facts.md` (or "none / file not found").
 
 ### Recommended Next Steps
 - Re-implement failed tasks: {list}

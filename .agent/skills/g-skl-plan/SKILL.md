@@ -132,3 +132,35 @@ Update status in the Feature file YAML and sync to `FEATURES.md` index row.
 
 <!-- Status: staging | specced | committed | shipped -->
 ```
+
+---
+
+## Operation: LOCK_PLAN (Manus Planning Gate — T879)
+
+**Called by `g-go-code` Step 0 — generates a locked implementation plan and stores it in the task file.**
+
+**Bypass:** Pass `--skip-plan` to `@g-go-code` for trivial single-file edits; not the default.
+
+**Steps:**
+
+1. Read the task file's `## Acceptance Criteria` — each `- [ ]` checkbox becomes one objective.
+2. Read `.gald3r/CONSTRAINTS.md` — extract active constraints (Status = active) whose `subsystems:` overlap with the task's `subsystems:` field. Include constraint ID and a 1-line summary.
+3. Derive numbered implementation steps: concrete filesystem-level actions (file to modify, operation type).
+4. Append the locked plan to the task file under `## Implementation Plan`:
+
+```markdown
+## Implementation Plan
+**Objectives:** [AC items reworded as objectives]
+**Constraints:** [C-NNN: summary — one per relevant active constraint]
+**Steps:**
+1. [step — name the file and operation]
+2. [next step]
+**Success Criteria:** [AC checkboxes verbatim]
+**Lock Status:** LOCKED
+**Locked at:** YYYY-MM-DD
+```
+
+5. If re-locking after a deviation, update `**Lock Status:**` to `DEVIATION_DETECTED`, append the deviation note below the affected step, then add a new `**Re-locked at:**` line before proceeding.
+
+**Review integration:** `g-go-review` reads `## Implementation Plan` and compares `Steps` against the actual diff. Undocumented divergences (steps that changed without a `DEVIATION:` note) are flagged as review failures.
+

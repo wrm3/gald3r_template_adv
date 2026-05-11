@@ -206,6 +206,23 @@ New constraint names must:
 
 ---
 
+## Optional Complement: OpenSpec (T922 Evaluation)
+
+**OpenSpec** (v1.2.0+, MIT, Node.js 20.19.0+) provides a Propose→Apply→Archive workflow for spec-first feature design. It is **complementary to CONSTRAINTS.md, not a replacement**.
+
+| | CONSTRAINTS.md | OpenSpec |
+|-|---------------|---------|
+| **Purpose** | Enforce architectural invariants | Spec features before building |
+| **Scope** | Ecosystem-wide, session-persistent | Per-feature, pre-implementation |
+| **Schema** | gald3r C-NNN custom format | `openspec.yaml` + Markdown artifacts |
+
+Use OpenSpec when designing complex features before task creation. Do NOT use it to encode or replace CONSTRAINTS.md entries — the schemas are incompatible and serve different governance layers.
+
+Install: `npm install -g openspec` | Docs: https://openspec.dev  
+Evaluation report: `docs/20260508_210000_Cursor_OPENSPEC_EVALUATION.md`
+
+---
+
 ## Notes for Implementers
 
 - CONSTRAINTS.md is loaded at **every session start** — it must remain a single file, fully in-context

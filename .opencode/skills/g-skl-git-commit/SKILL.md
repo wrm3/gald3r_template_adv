@@ -103,6 +103,26 @@ Before every commit, run through these checks. An optional `pre-commit` hook (`g
 |-------|-----------------|
 | **gald3r sync drift** | `.gald3r/TASKS.md` modified but individual `tasks/` files not staged (or vice versa) |
 | **platform parity** | IDE config files modified in one target but not propagated (run `scripts/platform_parity_check.ps1`) |
+| **CHANGELOG/release sync (C-023)** | `CHANGELOG.md` staged with new `## [x.x.x]` version headers that have no matching `.gald3r/releases/` file |
+
+### CHANGELOG/Release Sync Check (C-023)
+
+When `CHANGELOG.md` is staged (appears in `git diff --cached --name-only`):
+
+1. Find all version headers added by the diff:
+   ```powershell
+   # PowerShell: find newly-added ## [x.x.x] lines in the staged diff
+   git diff --cached -- CHANGELOG.md | Where-Object { $_ -match '^\+## \[[\d.]+\]' }
+   ```
+2. For each added version header (e.g., `## [1.5.0]`):
+   a. Convert to filename fragment: `v1-5-0` (replace dots with dashes)
+   b. Check: does `.gald3r/releases/` contain any file matching `*v1-5-0*`?
+   ```powershell
+   $files = Get-ChildItem .gald3r/releases/ -Filter "*v1-5-0*" -ErrorAction SilentlyContinue
+   ```
+   c. If NOT found: `WARN "C-023: CHANGELOG entry [1.5.0] has no matching .gald3r/releases/ file — run @g-release-new v1.5.0 to create it"`
+3. **Severity**: warn-only (exit 0) — future hardening can escalate to block.
+4. **Exemption**: `## [Unreleased]` headers are never flagged.
 
 ### Workspace-Control Commit Boundary
 

@@ -86,6 +86,7 @@ For each notable pattern found, produce:
 - Where it appears in the source (file reference)
 - Why it's worth considering
 - Complexity estimate: `low` (add a file/field) | `medium` (new subsystem) | `high` (multi-task refactor)
+- `similarity_risk:` assessment (see Similarity Risk below)
 - A draft IDEA_BOARD entry
 
 **Step 5 — Write harvest note** to `{recon_base}{YYYY-MM-DD}_{slug}.md` (flat file for review-style harvests) or `{recon_base}{slug}/REVIEW.md` (structured folder when promoting to deep recon). Include Obsidian-standard frontmatter (T044, T081 AC-8):
@@ -202,6 +203,39 @@ suggestions_adopted: 0
 **IDEA_BOARD status**: pending | posted as IDEA-042 | shelved
 ```
 
+### Similarity Risk Field
+
+Every suggestion in a harvest report **must** carry a `similarity_risk:` value:
+
+| Value | Meaning |
+|-------|---------|
+| `low` | Pattern is generic / widely used; no specific source identifiable |
+| `medium` | Pattern is traceable to one or more specific OSS repos; license is permissive |
+| `high` | Pattern closely mirrors a specific repo; license unclear or copyleft; recommend legal review before APPLY |
+| `critical` | Near-verbatim match to identified source; do not APPLY without legal sign-off |
+
+**Default when uncertain**: `medium` (conservatively pessimistic until a human reviews and downgrades).
+
+**Agent heuristic** (when no scanner is available):
+1. Compare function/class/variable names against source repo names — exact matches → raise risk
+2. Check if algorithmic structure is identical (same loop shape, same conditionals) → raise risk
+3. Flag `high` when > 50% of a function's structure is traceable to a single external source
+4. Flag `critical` when distinctive identifiers (unique variable names, error messages, comment phrasing) match source exactly
+
+Add `similarity_risk:` to the REVIEW output format:
+```yaml
+### 1. {Suggestion Title} [complexity: low]
+**Pattern found in**: `path/to/file.md`
+**What it does**: ...
+**Why adopt**: ...
+**similarity_risk**: low | medium | high | critical
+**IDEA_BOARD status**: pending | posted as IDEA-042 | shelved
+```
+
+> ⛔ Suggestions with `similarity_risk: critical` are blocked at the APPLY stage — see `g-skl-res-apply`.
+
+---
+
 ### Note on `tags:` vs `topics:`
 
 Use **`tags:`** (Obsidian's native field, C-002). Historical notes may still carry `topics:` — the migration in T039 converted 510+ notes. New writes must use `tags:` only.
@@ -217,6 +251,12 @@ When `@g-res-review {github_url}` targets an unmirrored repo:
    - Suggest: "Add `{github_url}` to `{repos_location}/repos.txt` and run `@g-vault-ingest` to mirror it, then re-run review"
 3. If `repos_location` is not set:
    - Suggest using HARVEST_URL instead
+
+---
+
+## Summary
+
+`g-skl-res-review` scans external sources for adoptable patterns, rates each suggestion by `similarity_risk` (low/medium/high/critical), and routes suggestions to the right project. `critical` risk suggestions are blocked at APPLY. Everything else is advisory until the user approves.
 
 ---
 
@@ -272,17 +312,17 @@ For each finding `F` in the harvest report:
 
 ### Display Format
 
-Harvest report with topology routing adds a `Routing` column:
+Harvest report with topology routing adds `Routing` and `Similarity Risk` columns:
 
 ```
 ## Suggestions
 
-| # | Finding | Complexity | Routing | Notes |
-|---|---------|------------|---------|-------|
-| 1 | Platform adapter pattern | Medium | → gald3r_valhalla | gald3r_valhalla owns communications subsystem |
-| 2 | Fast Mode execution profile | Low | → this-project | gald3r_dev owns autonomous-coding capability |
-| 3 | gRPC streaming transport | High | ⚡ new-project | No peer owns real-time-transport capability |
-| 4 | iMessage gateway | Medium | → multiple:gald3r_valhalla,gald3r_agent | Both own relevant capabilities |
+| # | Finding | Complexity | Sim. Risk | Routing | Notes |
+|---|---------|------------|-----------|---------|-------|
+| 1 | Platform adapter pattern | Medium | low | → gald3r_valhalla | gald3r_valhalla owns communications subsystem |
+| 2 | Fast Mode execution profile | Low | medium | → this-project | gald3r_dev owns autonomous-coding capability |
+| 3 | gRPC streaming transport | High | high | ⚡ new-project | No peer owns real-time-transport capability |
+| 4 | iMessage gateway | Medium | critical | → multiple:gald3r_valhalla,gald3r_agent | ⛔ APPLY blocked — legal review required |
 ```
 
 **User override**: user can manually change routing before APPLY by typing the target slug when prompted.

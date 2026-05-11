@@ -12,6 +12,44 @@ alternating between sessions.
 
 ---
 
+## 🚦 Coordinator: Routing-Only Mandate
+
+> **The coordinator never implements. It only routes, observes, and reconciles.**
+>
+> If the coordinator finds itself about to write production code or do file edits for a task,
+> it **MUST STOP** and delegate to `g-go-code` instead. This is the **pure routing orchestrator**
+> pattern — the coordinator is traffic control, not implementation. (OpenSwarm F-002, Anthropic
+> multi-agent coordination 2026-05-07.)
+
+**Routing decision record** — for each subtask the coordinator logs to the task's Status History:
+
+```
+ROUTE: {task_id} → {specialist} ({mode}) — {reason}
+```
+
+**Mode choices:**
+- **`SendMessage`** (parallel) — independent subtask, no cross-bucket deps; fire-and-forget. Maps to `--swarm` parallel buckets.
+- **`Handoff`** (sequential) — full-context transfer required from a prior result; wait for upstream output. Maps to the sequential `g-go-code → g-go-review` pipeline.
+
+**Coordinator-owned writes** — all shared `.gald3r/` write operations (TASKS.md, task files, BUGS.md,
+CHANGELOG.md, generated prompts, parity output) are **coordinator-owned steps** performed after
+specialist results are collected. They are never delegated to bucket agents or specialist executors.
+
+### Routing Flowchart
+
+```mermaid
+graph TD
+    C[Coordinator] --> |routes task spec| IA[Implementer Agent]
+    C --> |routes task spec| RA[Reviewer Agent]
+    IA --> |returns patch bundle| C
+    RA --> |returns verdict| C
+    C --> |coordinator-owned write| G[.gald3r/ shared state]
+    style C fill:#f9f,stroke:#333
+    style G fill:#bbf,stroke:#333
+```
+
+---
+
 ### ⛔ NO-PROMPT RULE — READ AND ENFORCE BEFORE DOING ANYTHING ELSE
 
 **The coordinator MUST NEVER ask the user to confirm a plan, select a scope, choose between options, or approve a proposal.** This command is designed for fire-and-forget operation across multi-window workflows and scheduled automation. The user has already expressed intent by typing the command; they are not watching this session.
@@ -88,6 +126,35 @@ Also re-run the **Gald3r Housekeeping Commit Gate** with `-Mode post-write -Appl
 
 
 Immediately before the coordinator merges bucket results into the primary checkout, updates shared `.gald3r` indexes or task/bug files as coordinator-owned writes, touches `CHANGELOG.md`, or creates checkpoint / review-result commits: **re-run** `git status --short` on the **orchestration root and every other repository root in the computed touch set** (steps 1 + 3 + 4). For `--swarm` runs, if unrelated dirty paths appear in **any** of those roots during parallel bucket work, **fail closed** — do not apply those shared writes; keep patches, artifacts, and evidence; report **per-root** blockers using the same blocker family as checkpoint and review-result commits.
+
+## Session-Start: Load Active Goal (Ralph Loop)
+
+> Fires immediately after safety gates pass, before Phase 1 work begins. If no active goal is set, this section is a no-op.
+
+If `.gald3r/config/ACTIVE_GOAL.md` exists:
+
+1. Read the file. Parse its YAML frontmatter (`description`, `linked_task`, `set_at`, `turn_budget`, `turns_consumed`).
+2. Inject into working context as the prefix:
+   ```
+   CURRENT GOAL: <description> (turn <turns_consumed>/<turn_budget>, task T{id})
+   ```
+3. Increment `turns_consumed` by 1 and write the updated value back to `ACTIVE_GOAL.md`.
+4. If `turns_consumed >= turn_budget`:
+   - Surface `🎯 Goal turn budget exhausted — pausing for user direction.`
+   - Stop the run cleanly. The user must extend the budget (`@g-goal <description>` to reset) or clear the goal (`@g-goal clear`).
+
+If `--with-goal T{id}` was passed in `$ARGUMENTS`:
+
+1. Treat as if `@g-goal --from-task T{id}` were just run: read `.gald3r/tasks/task{id}_*.md` (active or archive), set `ACTIVE_GOAL.md` from the task title, then proceed.
+2. Set `linked_task: T{id}` and the description from the task `title:` field. Default `turn_budget: 50`.
+
+If no `ACTIVE_GOAL.md` exists and no `--with-goal` flag is present, proceed without a goal lock (normal operation).
+
+**Goal-aligned AC gate** (Phase 1 implementation only): after each AC-gate iteration in Phase 1, the implementing agent (or per-bucket implementer) self-checks: "Did this action advance `<description>`?" If not, re-anchor on the goal in the next reasoning step. This is a soft drift-correction — not a hard block.
+
+See `g-goal` command (parity across all 6 IDE platforms) for the full Ralph loop specification.
+
+---
 
 ## Phase 1: Implementation
 
@@ -275,27 +342,51 @@ After reviewer completes:
 4. Write Pipeline Session Summary (see format below), including the review-result commit SHA or the explicit non-commit blocker
 
 The coordinator commits the review result by default for PASS, FAIL, and mixed verdicts. Allowed reasons not to commit are limited to unresolved conflicts, failed commit hooks, staged or untracked unrelated changes, detected secrets, dirty generated outputs not owned by review, missing user permission for destructive or out-of-scope changes, or repository state that prevents a safe commit.
-### 5. Member Repo Merge (Post-PASS)
+### 5. Member Repo Auto-Merge (Post-PASS)
 
-After the review-result commit, for every PASS item whose code worktree targets a **member repository** (any `workspace_repos` value that resolves to a repo other than the controller itself), run the merge-and-cleanup step:
+> **Flags** (pass in `$ARGUMENTS` or inherit from `@g-go-go`):
+> - `--no-auto-merge` — skip auto-merge and use old `[MERGE-BLOCKED]` behavior for all items
+> - `--target-branch <name>` — override merge target (default: `dev`; use `main` to ship directly to main)
+
+After the review-result commit, for every PASS item whose code worktree targets a **member repository** (any `workspace_repos` value that resolves to a repo other than the controller itself), perform the auto-merge step. Default target branch is `dev` (B+C pattern: Bot handles dev, Contributor controls main).
+
+**Step 1 — Target branch existence check:**
 
 ```powershell
-.\scripts\gald3r_worktree.ps1 -Action MergeToMain -RepoPath <member_path> -TaskId {id} -Owner {owner} -Apply -Json
+# Determine target branch (default: dev; override with --target-branch <name>)
+$targetBranch = if ($args -contains "--target-branch") { $args[$args.IndexOf("--target-branch") + 1] } else { "dev" }
+
+# Check if target branch exists in member repo
+$branchExists = git -C <member_path> branch --list $targetBranch
+if (-not $branchExists) {
+    $branchExists = git -C <member_path> branch -r --list "origin/$targetBranch"
+}
+```
+
+**Step 2 — Attempt auto-merge (when `--no-auto-merge` is NOT set AND target branch exists):**
+
+```powershell
+.\scripts\gald3r_worktree.ps1 -Action MergeToMain -RepoPath <member_path> -TaskId {id} -Owner {owner} -TargetBranch $targetBranch -Apply -Json
 ```
 
 The helper:
-1. Attempts `git merge --ff-only <code_branch>` into the member's current `HEAD`
-2. If FF fails (intervening commits), falls back to `git merge --no-ff -m "merge(T{id}): merge verified implementation into main"`
-3. On success: removes the code worktree + branch, removes the review worktree + branch, removes worktree folders, and runs `git worktree prune`
-4. Returns a structured JSON result: `action` = `merged` | `merge-blocked` | `merge-skipped-dirty` | `skipped`
+1. Checks out `$targetBranch` in the member repo
+2. Attempts `git merge --ff-only <code_branch>` into `$targetBranch`
+3. If FF fails (intervening commits), falls back to `git merge --no-ff -m "merge(T{id}): merge verified implementation into $targetBranch"`
+4. On success: removes the code worktree + branch, removes the review worktree + branch, removes worktree folders, and runs `git worktree prune`
+5. Returns a structured JSON result: `action` = `merged` | `merge-blocked` | `merge-skipped-dirty` | `skipped`
 
-**Merge blocked**: if merge fails (conflict or unrelated history), preserve the branch and log `[MERGE-BLOCKED] T{id}: <reason>` in the Pipeline Session Summary as a human action item. Do not fail the overall run.
+**Success**: log `[AUTO-MERGED→{targetBranch}] T{id}: ff` (or `no-ff`) in the Pipeline Session Summary.
+
+**Merge blocked (fallback)**: if merge fails (conflict, unrelated history, or `--no-auto-merge` was passed), preserve the branch and log `[MERGE-BLOCKED] T{id}: <reason>` in the Pipeline Session Summary as a human action item. Do not fail the overall run.
+
+**Target branch missing (fallback)**: if the target branch does not exist in the member repo (neither local nor remote), log `[MERGE-BLOCKED] T{id}: target branch '{targetBranch}' not found — create it first` and preserve the branch. This is the expected fallback for newly bootstrapped member repos before T941 dev-branch setup completes.
 
 **Member dirty**: if the member repo has uncommitted changes unrelated to this task at merge time, log `[MERGE-SKIPPED-DIRTY] T{id}: member dirty` and preserve the branch. Do not attempt the merge.
 
-**FAIL items**: do NOT run MergeToMain for items that received a FAIL verdict — the code branch must be preserved for re-implementation.
+**FAIL items**: do NOT run auto-merge for items that received a FAIL verdict — the code branch must be preserved for re-implementation.
 
-Run MergeToMain per PASS item sequentially in dependency order (lowest task ID first) so that each merge advances member `HEAD` cleanly for the next FF candidate.
+Run auto-merge per PASS item sequentially in dependency order (lowest task ID first) so that each merge advances member `$targetBranch` cleanly for the next FF candidate.
 
 When Phase 2 review and later Phase 1 rolling waves overlap, the coordinator serializes shared writes by checkpoint generation:
 
@@ -328,9 +419,10 @@ If review FAILs an item that later rolling-wave work consumed, requeue the faile
 | Task 9 | [✅] PASS | all ACs met |
 | BUG-003 | [📋] FAIL | AC-2 not met — {reason} |
 
-### Member Repo Merges
-- {member_repo}: T{id} ✅ merged (ff)
-- Blocked: none
+### Member Repo Auto-Merges
+- {member_repo}: T{id} [AUTO-MERGED→dev] (ff)
+- {member_repo}: T{id} [AUTO-MERGED→dev] (no-ff)
+- Blocked (fallback): T{id} — {reason}
 
 ### Final Status
 - ✅ Completed (verified): 2
@@ -408,9 +500,10 @@ Coordinator performs one final shared-write pass for `TASKS.md`, `BUGS.md`, task
 | R-1 | 7, 10 | 2 | 0 |
 | R-2 | 9 | 0 | 1 |
 
-### Member Repo Merges
-- {member_repo}: T{id} ✅ merged (ff)
-- Blocked: none
+### Member Repo Auto-Merges
+- {member_repo}: T{id} [AUTO-MERGED→dev] (ff)
+- {member_repo}: T{id} [AUTO-MERGED→dev] (no-ff)
+- Blocked (fallback): T{id} — {reason}
 
 ### Final Status
 - ✅ Completed (verified): {N}

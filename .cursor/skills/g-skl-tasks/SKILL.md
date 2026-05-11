@@ -141,6 +141,10 @@ pcac_source:
 | Timestamp | From | To | Message |
 |-----------|------|----|---------|
 | YYYY-MM-DD | — | pending | Task created |
+
+## Agent Notes
+<!-- Optional. Append-only cross-session handoff notes. Do not edit prior entries. -->
+<!-- Format: [AGENT:{platform}-{role}] [ISO-8601 timestamp] Note content here  -->
 ```
 
 4. **Subsystem guard** (subsystem integrity check — do before TASKS.md):
@@ -381,6 +385,40 @@ worktree_owner: "{agent_id_or_platform_slug}"
    File YAML: updated | TASKS.md: updated | Sync: verified
    Release: {release name} (target: {date}) — {days} days away    ← if release_id is set
    ```
+
+---
+
+## Operation: WRITE_NOTES (T850)
+
+Append a structured note to the task file's `## Agent Notes` section. Used for cross-session handoffs between parallel or sequential agent sessions.
+
+**Format** (append-only — never overwrite prior entries):
+```
+[AGENT:{platform}-{role}] [ISO-8601 timestamp] Note content here
+```
+
+**Rules**:
+- Notes are append-only. Never edit or delete existing entries.
+- Notes must survive worktree cleanup — commit the task file before worktree removal.
+- `g-go` coordinator reads existing Agent Notes when claiming a task and injects them into agent context.
+- If `## Agent Notes` section does not yet exist, create it at the end of the task file before appending.
+
+**Example notes**:
+```
+[AGENT:cursor-g-go-code] [2026-05-09T10:30:00Z] Migrated auth module from bcrypt v2.1 to v4.x. test_auth.py needs updating.
+[AGENT:claude-g-go-review] [2026-05-09T11:45:00Z] Reviewed auth migration — bcrypt v4 compat confirmed. test_auth.py fixes still outstanding.
+```
+
+**PowerShell append pattern**:
+```powershell
+$ts   = Get-Date -Format 'yyyy-MM-ddTHH:mm:ssZ'
+$line = "[AGENT:$platform-$role] [$ts] $noteText"
+$raw  = Get-Content $taskFile -Raw
+if ($raw -notmatch '## Agent Notes') {
+    Add-Content $taskFile "`n## Agent Notes`n<!-- Append-only cross-session handoff notes -->"
+}
+Add-Content $taskFile $line
+```
 
 ---
 
@@ -794,6 +832,70 @@ This item has failed verification **{N} times**. Automated agents will not retry
 - Cancel → mark `[❌]` with reason
 - Override as complete → mark `[✅]` with manual sign-off note
 ```
+
+---
+
+## Mid-Task Checkpoint Protocol (T836)
+
+Implementing agents running under `g-go-code` or `g-go` must pause after every
+**N major tool operations** (file reads, shell commands, file writes) for a brief
+self-evaluation. The default is **N = 20**; override via
+`.gald3r/config/AGENT_CONFIG.md` key `checkpoint_interval`.
+
+### Trigger
+
+After every N major operations within a single task's implementation, **before
+continuing**, run the self-evaluation below.
+
+### Self-Evaluation Questions (4 mandatory)
+
+1. **AC alignment** — How many acceptance criteria are satisfied vs. remaining?
+   Is current trajectory sufficient to meet all ACs?
+2. **Scope check** — Am I within the declared `subsystems:` and `workspace_repos:`
+   boundaries? Any scope creep detected?
+3. **Blocking obstacles** — Anything discovered that may prevent completing this
+   task? (missing files, unclear spec, external dependency, token budget)
+4. **Token budget** — Rough estimate of remaining context; flag if >75% consumed
+   with significant work still remaining.
+
+### Output Formats
+
+Healthy (no action required, continue):
+```
+## Mid-Task Checkpoint (operation N/20): HEALTHY
+AC progress: {X}/{total} satisfied. No blockers. Continuing.
+```
+
+Needs correction (surface before continuing):
+```
+## Mid-Task Checkpoint (operation N/20): NEEDS_CORRECTION
+⚠️ CHECKPOINT: {issue description}
+AC progress: {X}/{total} satisfied. Blocker: {description}.
+Correction plan: {1-2 sentences}.
+```
+
+### Status History Audit Trail
+
+**Before continuing**, append a checkpoint row to the task's `## Status History`:
+```
+| YYYY-MM-DD | in-progress | in-progress | CHECKPOINT {N}: {1-line summary}. AC: {X}/{total}. Blockers: {none|description}. Continuing. |
+```
+
+### Stop vs. Continue Decision
+
+| Result | Action |
+|---|---|
+| HEALTHY | Continue implementation immediately |
+| NEEDS_CORRECTION with resolvable blocker | Apply correction plan, continue |
+| NEEDS_CORRECTION with unresolvable blocker | Surface `⚠️ CHECKPOINT: [issue]` in next message; log as Blocked in step 6 of g-go-code |
+
+### Rules
+
+- Checkpoint is **mandatory** — fires every N operations, no exceptions.
+- A task marked `[🔍]` that consumed ≥1 checkpoints must show checkpoint rows
+  in `## Status History` before the `[🔍]` transition row.
+- In `--swarm` mode, each bucket agent runs independent checkpoints; the
+  coordinator does not aggregate them.
 
 ---
 

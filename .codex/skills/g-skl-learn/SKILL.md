@@ -81,6 +81,71 @@ Triggered by `/g-learn global`.
 3. For selected facts, append to `{vault_location}/projects/{project_name}/memory.md`
    (create the file with a header if it doesn't exist)
 
+### EVOLVE
+
+Triggered by `/g-learn evolve`.
+
+**Purpose:** Mine task failure trajectories from Status History FAIL rows, cluster recurring patterns, and propose new micro-rules or skill amendments for human review. Inspired by MetaClaw (arXiv 2603.17187): feeding failure trajectories into an LLM evolver achieves 32% accuracy improvement.
+
+**No changes are made without explicit human approval.** This operation is analysis + proposal only.
+
+**Steps:**
+
+1. **Collect failure data** — scan all `.gald3r/tasks/task*.md` files:
+   - Read each task's `## Status History` table
+   - Extract rows where the `To` column is `pending` or `failed` AND `Message` starts with `FAIL:` or `PARTIAL_PASS`
+   - Build a list of failure records: `{task_id, task_type, subsystems, failure_message, timestamp}`
+   - Filter to tasks with **2+ failure rows** (single failures are noise)
+
+2. **Extract failure signal** — for each failure record:
+   - `failure_type` — classify: selector_stale, scope_blocked, ac_missing, file_not_found, parity_missing, test_fail, review_rejection, other
+   - `error_pattern` — extract the core error phrase (strip task-specific details: file paths, IDs)
+   - `subsystem` — from task frontmatter `subsystems:` field
+   - `task_type` — from task frontmatter `type:` field (feature/bug_fix/refactor)
+
+3. **Cluster similar failures** — group by `(failure_type, error_pattern_fingerprint)`:
+   - Fingerprint: lowercase, strip numbers, strip file paths → first 60 chars
+   - Minimum cluster size: 2 tasks (single-task patterns are not systemic)
+   - Name each cluster by its dominant failure type and pattern
+
+4. **Synthesize proposals** — for each cluster with ≥2 members, generate a proposed patch:
+   - `type: rule` — if the pattern is an enforcement issue (e.g., "parity_missing 3× in skill tasks")
+   - `type: skill_amendment` — if the pattern is a missing step in a skill (e.g., "scope_blocked before checking workspace_repos")
+   - `type: preflight_check` — if the failure is consistently caught at review (e.g., "add pre-review check for X")
+   - Draft the proposed rule/skill text (2–5 lines, specific and actionable)
+
+5. **Write proposals to report file** — append to `.gald3r/reports/evolve_proposals.md`:
+   ```markdown
+   ## EVOLVE Report — {YYYY-MM-DD}
+
+   ### Cluster: {failure_type}/{pattern_name} ({N} tasks: T{id1}, T{id2}, ...)
+   - **Pattern**: {error_pattern}
+   - **Proposed type**: {rule|skill_amendment|preflight_check}
+   - **Proposed patch**:
+     > {2-5 line proposal text}
+   - **Originating tasks**: T{id1}, T{id2}
+   - **Status**: ⏳ awaiting human review
+
+   ---
+   ```
+
+6. **Present summary to user** — list clusters found, proposal types, and ask: "Review proposals? Type `@g-learn evolve --apply CLUSTER-N` to promote a proposal to the relevant skill/rule file."
+
+**Apply an approved proposal (`/g-learn evolve --apply CLUSTER-N`):**
+1. Read the cluster entry from `evolve_proposals.md`
+2. Identify target: rule file (`.cursor/rules/`) or skill file (`.cursor/skills/`)
+3. Append the proposal with provenance:
+   ```
+   <!-- EVOLVE[T{id1},T{id2}] 2026-05-09: {proposal text} -->
+   ```
+4. Update `evolve_proposals.md` entry: `Status: ✅ applied to {file} on {date}`
+5. Add to `DECISIONS.md` (if it exists): one-liner record with originating task IDs
+
+**Constraints:**
+- Never modify a rule/skill without the explicit `--apply CLUSTER-N` invocation
+- `[🚨]` (requires-user-attention) tasks are high-value candidates — surface them first
+- Maximum 10 proposals per EVOLVE run (prevent noise from low-quality clusters)
+
 ## Session Integration
 
 At end of `g-go-code` and `g-go-review` sessions, add this to the handoff block:

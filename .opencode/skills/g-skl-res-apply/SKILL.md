@@ -161,6 +161,31 @@ Full intake. Creates all gald3r artifacts for the selected features.
 - Parse frontmatter YAML: target_name, features[], subsystem_candidates
 - Filter features by mode; `--mode=all` must still exclude unreviewed, `[🔍]`, `[⏸]`, and `[❌]` items unless an explicit clean-room exception is recorded
 
+**Similarity Risk Pre-flight Check** (runs before any artifact creation):
+
+Scan all selected features for their `similarity_risk` column value. Then:
+
+1. Print the similarity risk summary (always, even when not blocked):
+   ```
+   Similarity risk summary: {N} low, {M} medium, {P} high, {Q} critical
+   ```
+
+2. If **any** feature has `similarity_risk: critical`:
+   ```
+   ⛔ APPLY BLOCKED — feature '<name>' has similarity_risk: critical. Legal review
+   required before this feature can be applied to .gald3r/.
+   To proceed: manually change similarity_risk to 'high' in FEATURES.md (accepting the risk)
+   or remove the feature row entirely.
+   ```
+   Exit without writing any tasks, features, subsystems, or goals.
+
+3. If features have `similarity_risk: high`:
+   ```
+   ⚠️ WARNING — {N} feature(s) have similarity_risk: high. Legal review recommended
+   before shipping. These features will be applied but are flagged in generated task files.
+   ```
+   Continue with APPLY (not blocked; generates audit-visible warning in each task file).
+
 #### Step 2 — Extract Project Goals
 - For each feature, read `enables:` array
 - Identify enables entries that describe project-level outcomes

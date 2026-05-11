@@ -1,6 +1,6 @@
 ---
 name: g-skl-release
-description: Own and manage all release data — RELEASES.md index and releases/ individual files. Operations: CREATE new release, ASSIGN tasks to a release, STATUS summary, PUBLISH ROADMAP.md, ACCELERATE target dates with cascading shift to subsequent planned releases.
+description: Own and manage all release data — RELEASES.md index and releases/ individual files. Operations: CREATE new release, ASSIGN tasks to a release, STATUS summary, PUBLISH ROADMAP.md, ACCELERATE target dates with cascading shift to subsequent planned releases, SYNC reconcile CHANGELOG entries against release records (C-023).
 ---
 # g-release
 
@@ -196,6 +196,38 @@ Generates `ROADMAP.md` at the project root. Overwrites cleanly — do not hand-e
 
 ---
 
+## Operation: SYNC (reconcile CHANGELOG entries against release records)
+
+**Usage**: `@g-release-sync` or triggered at session start when gap count > 0
+
+**Algorithm**:
+1. Read `CHANGELOG.md`, extract all `## [x.x.x]` version headers — skip `## [Unreleased]`
+2. Read `.gald3r/RELEASES.md`, collect all `version:` entries from the index table
+3. Read `.gald3r/releases/*.md` frontmatter, collect all `version:` fields
+4. Report:
+   - **Missing release file**: CHANGELOG has `[x.x.x]` but no `.gald3r/releases/` file with matching version
+   - **Missing CHANGELOG entry**: `.gald3r/releases/` file exists but CHANGELOG has no matching `## [x.x.x]` header
+   - **RELEASES.md gap**: release file exists but `RELEASES.md` index row is missing
+5. For each gap, suggest the remediation command:
+   - Missing release file → `@g-release-new vX.X.X`
+   - Missing CHANGELOG entry → add `## [x.x.x]` section manually or via release publish flow
+   - Missing RELEASES.md row → `@g-release-status` to regenerate index
+
+**Output format**:
+```
+📋 CHANGELOG/Release Sync Check
+  ✅ N releases in sync
+  ⚠️ M gaps detected:
+    - [1.2.0] in CHANGELOG but no .gald3r/releases/ file → run @g-release-new v1.2.0
+    - [1.3.1] in .gald3r/releases/ but not in CHANGELOG → add entry manually
+    - [1.4.0] release file exists but missing from RELEASES.md → run @g-release-status
+```
+
+**Session start surface**: If gap count > 0, g-rl-25 surfaces:
+`⚠️ N CHANGELOG version(s) missing release file — run @g-release-sync`
+
+---
+
 ## File Placement (10-target propagation)
 
 Per C-009, this skill exists in all 10 IDE targets:
@@ -223,6 +255,7 @@ Propagation: edit canonical copy first, then run `platform_parity_sync.ps1 -Sync
 | `@g-release-status` / `/g-release-status` | STATUS |
 | `@g-release-publish` / `/g-release-publish` | PUBLISH |
 | `@g-release-accelerate` / `/g-release-accelerate` | ACCELERATE |
+| `@g-release-sync` / `/g-release-sync` | SYNC |
 
 ---
 

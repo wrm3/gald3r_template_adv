@@ -171,6 +171,35 @@ After each fresh crawl: read `research/platforms/cursor/*.md`, update sections 1
 
 ---
 
+## 11. Hook Authoring — Idempotency Guard Pattern (T839)
+
+Any hook that should only fire once per session (session-start, vault-reindex, vault-migrate, wrkspc-manifest-check) MUST include an idempotency guard at the top:
+
+```powershell
+# ── Idempotency guard ─────────────────────────────────────────────────────────
+if (-not $ForceRun -and $env:GALD3R_HK_{HOOKNAME}_APPLIED -eq "1") {
+    Write-Host "[SKIP] g-hk-{hookname} already applied this session. Pass -ForceRun to override."
+    exit 0
+}
+$env:GALD3R_HK_{HOOKNAME}_APPLIED = "1"
+```
+
+**Naming**: replace `{HOOKNAME}` with the script name uppercased with underscores:
+- `g-hk-session-start.ps1` → `GALD3R_HK_SESSION_START_APPLIED`
+- `g-hk-vault-reindex.ps1` → `GALD3R_HK_VAULT_REINDEX_APPLIED`
+- `g-hk-vault-migrate.ps1` → `GALD3R_HK_VAULT_MIGRATE_APPLIED`
+- `g-hk-wrkspc-manifest-check.ps1` → `GALD3R_HK_WRKSPC_MANIFEST_CHECK_APPLIED`
+
+**Exclusions** — hooks that MUST run every time are excluded from this guard:
+- `g-hk-pcac-inbox-check.ps1` — explicitly re-callable for conflict resolution
+- `g-hk-pre-commit.ps1` — must validate every commit
+- `g-hk-validate-shell.ps1` — must validate every shell command
+- `g-hk-pre-push.ps1` — must validate every push
+
+**Always add `-ForceRun` param** so callers can bypass the guard when they explicitly need a re-run.
+
+---
+
 ## 10. Install Verification Checklist
 
 ```
@@ -182,3 +211,74 @@ After each fresh crawl: read `research/platforms/cursor/*.md`, update sections 1
 ✅ platform_parity_sync.ps1 reports 0 gaps
 ✅ Cursor > Settings > MCP shows configured servers (if using MCP)
 ```
+
+---
+
+## 11. Skill-as-Installer Pattern
+
+Skills that wrap paid or OAuth-gated MCP services MUST include a `## Installation` section the agent executes automatically on first use — replacing the README that nobody reads.
+
+### Three-state algorithm
+
+```
+1. ALREADY CONFIGURED — check .cursor/mcp.json for the server key → if present, skip
+2. TOKEN / KEY FOUND  — check env vars / .env for SERVICE_API_KEY → write MCP entry, proceed
+3. NOT SET UP        — open browser for OAuth or key retrieval, write entry on return
+```
+
+**Browser open (Windows / macOS):**
+```powershell
+# Windows (Shell tool)
+Start-Process "https://service.com/api-keys"
+# macOS / Linux
+# open "https://service.com/api-keys"
+```
+
+### Cost Confirmation gate (credit-billed services)
+
+Before any generation / consumption call, the agent MUST:
+1. Quote: model + settings, estimated cost, current balance, projected balance after
+2. Wait for explicit "go" / "yes" / "do it"
+3. Never auto-proceed — even in background/auto mode
+
+### `## Installation` template for new skills
+
+```markdown
+## Installation
+
+Requires [ServiceName] [account / subscription tier].
+
+**Agent-guided setup (runs automatically on first use):**
+
+1. **Configured?** — check `.cursor/mcp.json` for `"service-name"` → skip if present
+2. **Key found?** — check env `SERVICE_API_KEY` → write MCP entry, continue
+3. **Not set up?** — `Start-Process "https://service.com/api-keys"` → paste key → write entry
+
+> **Cost gate (if credit-billed):** quote cost + balance before every billable call; wait for "go".
+```
+
+See `higgsfield` skill for the reference implementation.
+
+---
+
+## 12. Skill Cost-Guard Pattern (T844)
+
+Skills that call paid external APIs MUST surface a cost estimate and ask for explicit user confirmation before executing any billable operation.
+
+### Template
+
+```markdown
+> "About to [describe operation] using [Service/Model] — estimated cost: [~N credits / $X].
+> Continue? (**y** = proceed · **n** = cancel · **options** = see cheaper alternatives)"
+```
+
+Wait for explicit confirmation. If the user hesitates → offer cheaper alternatives (lower resolution, faster model, shorter duration, smaller batch).
+
+### Rules
+
+- Show the estimate BEFORE the API call — never after
+- If the API supports balance queries, include projected remaining balance
+- On cancel: confirm "Cancelled — no credits used"
+- The negotiate-down flow MUST offer at least one cheaper alternative
+
+See `create-skill` SKILL.md `## Cost-Guard Pattern` for the full authoring template.
