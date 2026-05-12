@@ -12,6 +12,10 @@ logs/
 .vault_location
 .user_id
 
+# T1036: Per-project user preferences — host-only, never committed
+# Contains personality overrides, project-specific MCP URLs, etc.
+.user_prefs.yaml
+
 # Temp/scratch files
 *.tmp
 
