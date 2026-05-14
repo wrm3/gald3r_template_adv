@@ -52,7 +52,8 @@ This capture skill may store source material in the vault for research, provenan
    ```
 4. **Register** in `research/repos/_index.yaml`
 5. **Append** to `vault/log.md` per C-006
-6. **If --deep**: activate `g-skl-res-deep ANALYZE` on the captured repo
+6. **Write IDEA_BOARD entries** (MANDATORY — see ## Mandatory IDEA_BOARD Write below)
+7. **If --deep**: activate `g-skl-res-deep ANALYZE` on the captured repo
 
 ### Dedup check
 
@@ -99,6 +100,45 @@ This capture skill may store source material in the vault for research, provenan
 
 `{vault_location}/research/repos/{owner}__{repo}.md`
 (vault_location from `.gald3r/.identity`)
+
+---
+
+---
+
+## Mandatory IDEA_BOARD Write (NON-NEGOTIABLE)
+
+**After every CAPTURE, write all notable patterns and findings from the repo directly to `.gald3r/IDEA_BOARD.md`. Do NOT skip. Do NOT ask permission. Do NOT wait for --deep to complete first.**
+
+The vault note stores the knowledge. The IDEA_BOARD captures the opportunities. A repo capture without IDEA_BOARD entries is incomplete — you read the repo, so write down what it taught you.
+
+### Entry format
+
+Append a batch block using `StrReplace` (never overwrite `.gald3r/IDEA_BOARD.md`):
+
+```markdown
+## HARVEST-BATCH-{YYYY-MM-DD}-{OWNER}-{REPO}
+*Source: {github_url} | {repo_title} | Harvested: {YYYY-MM-DD}*
+
+---
+
+### IDEA-HARVEST-{NNN}
+**Title**: {idea title}
+**Source**: `{owner}/{repo}` — {file or feature}
+**Priority**: high|medium|low
+**Type**: feature|enhancement|research|documentation
+**Summary**: {2-3 sentences: what gald3r could adopt and why}
+**Action**: [Task candidate] OR [IDEA_BOARD capture] OR [SKIP — {reason}]
+```
+
+### Finding the next IDEA-HARVEST-NNN
+
+Search `.gald3r/IDEA_BOARD.md` for the highest `### IDEA-HARVEST-NNN` and increment. Never reuse a number.
+
+### Minimum entries per repo
+
+- **Relevant repo**: 3–10 entries minimum
+- **Irrelevant or empty repo**: 1 SKIP entry (documents the review happened)
+- **Repos captured as a batch**: write one `## HARVEST-BATCH-*` block per repo, back-to-back in a single IDEA_BOARD write
 
 ---
 

@@ -122,6 +122,47 @@ source_notes: "Transcript captured 2026-04-06. No visual analysis."
 
 ---
 
+---
+
+## Mandatory IDEA_BOARD Write (NON-NEGOTIABLE)
+
+**After every YouTube ingestion, you MUST write all harvest findings to `.gald3r/IDEA_BOARD.md`. Do NOT skip this step. Do NOT ask permission. Do NOT stage for later.**
+
+The vault note stores the source material. The IDEA_BOARD records what gald3r should do about it. Both must be written in the same operation. A vault note without IDEA_BOARD entries is an incomplete ingest.
+
+### Write after Step 5 (vault note complete)
+
+After `research/videos/{date}_{slug}.md` is written, immediately generate harvest entries and append to `.gald3r/IDEA_BOARD.md` using `StrReplace`.
+
+### Entry format
+
+```markdown
+## HARVEST-BATCH-{YYYY-MM-DD}-yt-{VIDEO_ID}
+*Source: {youtube_url} | Title: {video_title} | Harvested: {YYYY-MM-DD}*
+
+---
+
+### IDEA-HARVEST-{NNN}
+**Title**: {idea title}
+**Source**: {specific segment or timestamp}
+**Priority**: high|medium|low
+**Type**: feature|enhancement|research|documentation
+**Summary**: {2-3 sentences: what gald3r could adopt and why}
+**Action**: [Task created — T{id}] OR [IDEA_BOARD capture] OR [SKIP — {reason}]
+```
+
+### Finding the next IDEA-HARVEST-NNN
+
+Search `.gald3r/IDEA_BOARD.md` for the highest `### IDEA-HARVEST-NNN` and increment. Never reuse a number.
+
+### Minimum entries
+
+- **Relevant video**: 1–7 entries minimum
+- **Off-topic / ads**: 1 SKIP entry still required (documents the review happened)
+- **Batch of videos**: write all batches back-to-back in a single IDEA_BOARD write
+
+---
+
 ## Obsidian Compatibility
 
 All notes written by this skill must conform to **VAULT_OBSIDIAN_STANDARD.md** (§2 type registry, §3 tag taxonomy).  

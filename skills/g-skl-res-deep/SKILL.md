@@ -257,6 +257,8 @@ features_total: N
 status: ready_for_review
 ```
 
+**Write IDEA_BOARD entries (MANDATORY — see below)**: immediately after `FEATURES.md` is written, extract the top findings and append to `.gald3r/IDEA_BOARD.md`. See ## Mandatory IDEA_BOARD Write section.
+
 **Finalize**: append/update entry in `_recon_index.yaml`:
 ```yaml
 - slug: {slug}
@@ -376,3 +378,50 @@ Idempotent: re-running the script updates existing entries without duplicating t
 
 **Reporter Rule — always enforced**:
 > "We are documenting what this project does, not copying how it is written. A feature being already present in gald3r is NOT a reason to skip it — it is a reason to note the behavioral overlap and learn from the alternative approach in original wording."
+
+---
+
+## Mandatory IDEA_BOARD Write (NON-NEGOTIABLE)
+
+**At Pass 5 completion, you MUST write all top findings to `.gald3r/IDEA_BOARD.md`. Do NOT skip. Do NOT ask. Do NOT wait for human APPLY approval. Write to IDEA_BOARD AND FEATURES.md simultaneously.**
+
+FEATURES.md is the deep structured harvest for human review. IDEA_BOARD is the lightweight actionable findings register. Both must be populated. A completed `g-skl-res-deep` run without IDEA_BOARD entries is incomplete.
+
+### When to write
+
+Immediately after `FEATURES.md` is written (still within Pass 5). Write IDEA_BOARD entries before updating `_recon_index.yaml`.
+
+### What to extract
+
+From `FEATURES.md`, select the top 10–20 most actionable findings and write them as IDEA_BOARD entries. Include:
+- Findings that map to immediate task candidates
+- Findings that validate or challenge existing gald3r design decisions
+- Patterns with low effort and high value
+- Any item flagged as `[🔍] needs-review` (these are IDEA_BOARD candidates by definition)
+
+### Entry format
+
+Append a batch block to `.gald3r/IDEA_BOARD.md` using `StrReplace`:
+
+```markdown
+## HARVEST-BATCH-{YYYY-MM-DD}-{SLUG}
+*Source: {url} | {project_name} | Harvested: {YYYY-MM-DD}*
+
+---
+
+### IDEA-HARVEST-{NNN}
+**Title**: {idea title}
+**Source**: {feature ID from FEATURES.md or file:line reference}
+**Priority**: high|medium|low
+**Type**: feature|enhancement|research|documentation
+**Summary**: {2-3 sentences: what gald3r could adopt and why}
+**Action**: [Task candidate] OR [IDEA_BOARD capture] OR [SKIP — {reason}]
+```
+
+### Finding the next IDEA-HARVEST-NNN
+
+Search `.gald3r/IDEA_BOARD.md` for the highest `### IDEA-HARVEST-NNN` and increment. Never reuse a number.
+
+### Items that also become tasks
+
+If a finding is urgent/high-priority, create the task AND write the IDEA_BOARD entry. The Action field becomes: `Task created — T{id}`. Both records must exist.

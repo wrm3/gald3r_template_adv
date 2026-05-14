@@ -105,12 +105,22 @@ suggestions_adopted: 0
 ---
 ```
 
-**Step 6 — For each suggestion**, ask:
-> "Add to feature staging or IDEA_BOARD? (feature/idea/skip)".
+**Step 6 — Write ALL suggestions to IDEA_BOARD immediately (MANDATORY)**:
 
-- `feature` → calls `g-skl-features COLLECT` on a matching staging feature (fuzzy match ≥70%) OR `g-skl-features STAGE` to create a new staging doc
-- `idea` → posts to IDEA_BOARD via `g-skl-ideas CAPTURE`
-- `skip` → log as skipped; available in HARVEST_REVIEW later
+Do NOT ask "add to feature staging or IDEA_BOARD?" before writing. Write ALL suggestions to `.gald3r/IDEA_BOARD.md` unconditionally, then ask the user which ones to also promote to feature staging.
+
+```
+For each suggestion:
+1. Write IDEA_BOARD entry (mandatory, immediate, no permission needed)
+2. If suggestion is also task-worthy: create task AND note in IDEA_BOARD Action field
+3. AFTER all entries are written: ask user "Which of these should also go to feature staging?"
+```
+
+- `feature staging` (user decides after IDEA_BOARD write) → calls `g-skl-features COLLECT` on a matching staging feature (fuzzy match ≥70%) OR `g-skl-features STAGE`
+- Already written to IDEA_BOARD — no separate `idea` routing needed
+- `skip` → still writes a SKIP entry to IDEA_BOARD with reason (documents the review happened)
+
+**See ## Mandatory IDEA_BOARD Write below for entry format.**
 
 **Step 7 — Finalize dedup entry** in `_recon_index.yaml`:
 ```yaml
@@ -254,9 +264,52 @@ When `@g-res-review {github_url}` targets an unmirrored repo:
 
 ---
 
+---
+
+## Mandatory IDEA_BOARD Write (NON-NEGOTIABLE)
+
+**Every HARVEST_REPO and HARVEST_URL run MUST write all findings to `.gald3r/IDEA_BOARD.md` as part of Step 6. No exceptions. Do not ask permission. Do not skip because a finding also became a task.**
+
+The IDEA_BOARD is the complete historical record of what was found and when. Feature staging and tasks are downstream decisions. If IDEA_BOARD is not written, tokens were wasted.
+
+### Entry format
+
+Append to `.gald3r/IDEA_BOARD.md` using `StrReplace` (never overwrite):
+
+```markdown
+## HARVEST-BATCH-{YYYY-MM-DD}-{SLUG}
+*Source: {url} | {project_name} | Harvested: {YYYY-MM-DD}*
+
+---
+
+### IDEA-HARVEST-{NNN}
+**Title**: {idea title}
+**Source**: `{file}` — {what was observed}
+**Priority**: high|medium|low
+**Type**: feature|enhancement|research|documentation
+**Complexity**: low|medium|high
+**Similarity Risk**: low|medium|high|critical
+**Summary**: {2-3 sentences about the pattern and why it matters for gald3r}
+**Action**: [Task created — T{id}] OR [IDEA_BOARD capture] OR [Feature staged — feat-{id}] OR [SKIP — {reason}]
+```
+
+### Finding the next IDEA-HARVEST-NNN
+
+Search `.gald3r/IDEA_BOARD.md` for the highest `### IDEA-HARVEST-NNN` and increment. Never reuse a number.
+
+### SKIP entries
+
+If a suggestion is not adoptable, write a SKIP entry anyway. The review happened; it should be recorded. `Action: [SKIP — {reason}]`.
+
+### Minimum per harvest
+
+Write at least 3 entries per HARVEST_REPO or HARVEST_URL run. If the source is clearly irrelevant, write 1 SKIP entry documenting the review.
+
+---
+
 ## Summary
 
-`g-skl-res-review` scans external sources for adoptable patterns, rates each suggestion by `similarity_risk` (low/medium/high/critical), and routes suggestions to the right project. `critical` risk suggestions are blocked at APPLY. Everything else is advisory until the user approves.
+`g-skl-res-review` scans external sources for adoptable patterns, rates each suggestion by `similarity_risk` (low/medium/high/critical), and routes suggestions to the right project. `critical` risk suggestions are blocked at APPLY. **All findings are written to IDEA_BOARD immediately. Feature staging and task creation are downstream decisions made by the user.**
 
 ---
 
