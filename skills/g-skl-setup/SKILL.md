@@ -1,4 +1,4 @@
----
+﻿---
 name: g-skl-setup
 description: Initialize gald3r in a project — folder structure and template files for task management.
 ---
@@ -39,6 +39,45 @@ Outcomes:
 - exit `2` (ERROR) — manifest unparseable. Resolve before continuing. If the project is genuinely standalone (no `.gald3r/linking/workspace_manifest.yaml` in any ancestor), the helper returns ALLOW; an actual exit `2` indicates a broken manifest.
 
 Installed projects ship the same helper at `scripts/check_member_repo_gald3r_guard.ps1`. External template repos (`G:/gald3r_ecosystem/gald3r_template_slim`, `G:/gald3r_ecosystem/gald3r_template_full`, `G:/gald3r_ecosystem/gald3r_template_adv`) are the only legitimate exception for live `.gald3r/` writes outside the control project.
+
+### Step 0.5 — Git Readiness Check
+
+Run this after Step 0 passes and **before** any `.gald3r/` folder creation. Skip entirely if Step 0 blocked (member-repo targets do not need this check).
+
+**1. Is this a git repo?**
+```
+git rev-parse --is-inside-work-tree
+```
+- Exit 0 → repo exists, continue to check 2.
+- Non-zero exit → not a git repo. Offer (default Y):
+  ```
+  "This directory is not a git repo. Initialize git? [Y/n]"
+  → Y: git init && git commit --allow-empty -m "chore: initial commit"
+  → N: warn "g-go-go autopilot requires git; some features will not work" then continue
+  ```
+
+**2. Does a `dev` branch exist?**
+```
+git branch --list dev
+```
+- Non-empty output → dev exists, skip.
+- Empty → no dev branch. Offer (default Y):
+  ```
+  "No 'dev' branch found. Create dev from current HEAD? [Y/n]"
+  → Y: git checkout -b dev
+        [if remote exists] git push --set-upstream origin dev
+        git checkout - (return to original branch)
+  → N: warn "g-go-go autopilot will MERGE-BLOCKED without a dev branch"
+  ```
+
+**3. Remote check (info only — never blocks setup)**
+```
+git remote -v
+```
+- No remote configured → print info note only:
+  `"No git remote configured. g-go-go autopilot cross-session merges require push access. Add later: git remote add origin <url>"`
+
+**All prompts default to Y and are non-blocking** — declining any prompt adds a warning but does not stop the setup. The agent should present options as numbered choices in its response, then run the chosen commands.
 
 ### Step 1 — Detect if existing (check before creating anything)
    ```
