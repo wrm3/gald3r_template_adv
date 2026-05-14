@@ -94,3 +94,29 @@ temp_scripts/*
 .gald3r/logs/*.log
 !.gald3r/logs/.gitkeep
 
+
+# T1043: generated skills integrity manifest — do not commit
+gald3r-skills-lock.json
+
+# T1011: personalized LLM bootstrap (optional — user choice to commit)
+# GALD3R-PROMPT.md
+
+# T1048: Platform skill/agent/command dirs are generated from root skills/, agents/, commands/
+# Do NOT edit these directly. Edit root skills/, agents/, commands/ instead.
+# Run setup_dev_env.ps1 after cloning to populate these from the root canonical dirs.
+.cursor/skills/
+.cursor/agents/
+.cursor/commands/
+.claude/skills/
+.claude/agents/
+.claude/commands/
+.agent/skills/
+.agent/agents/
+.agent/commands/
+.codex/skills/
+.codex/agents/
+.codex/commands/
+.opencode/skills/
+.opencode/agents/
+.opencode/commands/
+.copilot/commands/
