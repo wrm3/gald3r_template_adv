@@ -82,12 +82,13 @@ Scan the codebase for improvement opportunities. Limit 10 new ideas per run. Ski
 **Pass 3 — Duplication**: similar signatures, copy-pasted blocks, overlapping skill content
 **Pass 4 — Best practices**: bare except/catch, missing type hints, missing tests, N+1 patterns
 **Pass 5 — Knowledge gaps**: vault research not applied, IDEA_BOARD ideas now unblocked
+**Pass 6 — Skill candidates (T1174)**: scan `.gald3r/reports/skill_candidates/` for stubs staged by `g-hk-agent-complete` and promote filled ones to IDEA_BOARD entries with `Category: skill_candidate`
 
 **Output format** for each idea found:
 ```markdown
 ### IDEA-NNN: {Title}
 **Status**: raw
-**Category**: refactor | simplify | performance | security | feature | test
+**Category**: refactor | simplify | performance | security | feature | test | skill_candidate
 **Source**: idea-farm (YYYY-MM-DD)
 **Effort**: low | medium | high
 **Impact**: low | medium | high
@@ -97,6 +98,61 @@ Scan the codebase for improvement opportunities. Limit 10 new ideas per run. Ski
 ```
 
 **Deduplication**: before adding, check if same file + same category already exists in IDEA_BOARD.md.
+
+### Pass 6 — Skill Candidate Sweep (T1174)
+
+When `.gald3r/reports/skill_candidates/` exists, perform a dedicated sub-pass:
+
+1. **List stubs**: enumerate `.gald3r/reports/skill_candidates/*.md`
+2. **Read frontmatter** `status:` from each:
+   - `pending` (default after hook stages it) → stub is unfilled; skip and report count as `awaiting_input`
+   - `discarded` → agent reviewed and decided no reusable pattern; move file to `.gald3r/reports/skill_candidates/discarded/`
+   - `filled` or `ready` → eligible for promotion to IDEA_BOARD
+3. **Promote filled stubs** to `IDEA_BOARD.md` as a single entry per stub:
+   ```markdown
+   ### IDEA-NNN: Skill candidate — {name from stub}
+   **Status**: raw
+   **Category**: skill_candidate
+   **Captured**: YYYY-MM-DD
+   **Source**: skill_capture_hook ({stub filename})
+
+   **Description**:
+   {when_to_use} — {how_it_works} (3-5 lines from stub)
+
+   **Potential Value**:
+   Reusable pattern surfaced during task execution. Promote via `@g-create-skill` if validated.
+
+   **When Ready**:
+   Review the captured pattern; if it generalizes, scaffold via `@g-create-skill` and link the stub.
+
+   **Stub reference**: `.gald3r/reports/skill_candidates/{filename}`
+   ```
+4. **Move promoted stub** to `.gald3r/reports/skill_candidates/promoted/{filename}` (preserve audit trail)
+5. **Summary line**: `Skill candidates: N pending input, M promoted, K discarded`
+
+**Stub format expected** (matches SKILL.md structure per AC5):
+```yaml
+---
+status: pending | filled | ready | discarded
+captured_at: YYYY-MM-DD HH:MM:SS
+session_id: ...
+task_id: ""
+---
+
+## name
+<kebab-case skill name>
+
+## when_to_use
+<one sentence trigger>
+
+## how_it_works
+<3-5 lines of procedure>
+
+## example
+<minimal example>
+```
+
+**Dedup rule for skill candidates**: skip a stub whose `name:` already appears in any existing IDEA_BOARD entry of category `skill_candidate`. The stub still gets moved to `promoted/` to clear the queue.
 
 ---
 

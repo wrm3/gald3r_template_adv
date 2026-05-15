@@ -336,6 +336,29 @@ provider_fallback_chain:
 
 ---
 
+## Skill Capture Hook (T1174)
+
+Opt-in feedback loop that lets `g-hk-agent-complete` stage SKILL.md candidate stubs after every completed session. Filled stubs are surfaced to `IDEA_BOARD.md` by `@g-idea-farm` (Pass 6).
+
+```yaml
+skill_capture_hook: false   # set to `true` to enable
+```
+
+| Flag | Default | Effect |
+|------|---------|--------|
+| `skill_capture_hook` | `false` | When `true` and the session ends with `status: completed`, `g-hk-agent-complete` writes a SKILL-candidate stub to `.gald3r/reports/skill_candidates/YYYYMMDD_HHMMSS_session{shortcid}.md`. Filled stubs are promoted to `IDEA_BOARD.md` by `@g-idea-farm`. |
+
+**Flow**:
+1. Agent ends session → hook checks this flag → if true, stages a pending stub
+2. Next agent session (or human) edits the stub: fills `name`, `when_to_use`, `how_it_works`, `example`, sets `status: filled`
+3. `@g-idea-farm` Pass 6 scans the folder; filled stubs become IDEA_BOARD entries with `Category: skill_candidate`
+4. Promoted stubs move to `.gald3r/reports/skill_candidates/promoted/`; discarded stubs move to `.../discarded/`
+5. From IDEA_BOARD, the user can promote to a real task via `g-skl-ideas` PROMOTE (then scaffold the skill via `@g-create-skill`)
+
+**Disabled by default** so projects opt in only when they want the feedback loop. No stubs are staged while the flag is false or absent.
+
+---
+
 ## Notes
 
 - This file is in `.gald3r/config/` alongside `HEARTBEAT.md`, `SPRINT.md`, etc.

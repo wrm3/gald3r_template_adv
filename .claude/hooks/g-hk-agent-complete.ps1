@@ -132,5 +132,91 @@ try {
     $reflectionData | ConvertTo-Json -Compress | Set-Content -Path "$logsDir/pending_reflection.json" -Encoding UTF8
 } catch {}
 
+# ── T1174: Skill-Capture Stub (opt-in) ───────────────────────────────────────
+# When AGENT_CONFIG.md has `skill_capture_hook: true`, stage a stub file in
+# .gald3r/reports/skill_candidates/ inviting the next agent session to capture
+# any reusable patterns discovered during this task as a SKILL.md candidate.
+#
+# The hook is fire-and-stage only — PowerShell hooks cannot literally prompt
+# an LLM. The stub is filled by the agent at next session-start (the session
+# start hook surfaces pending stubs) or by `@g-idea-farm`, which scans the
+# candidate folder and surfaces filled stubs to IDEA_BOARD.md.
+#
+# Default: disabled. Opt in by setting `skill_capture_hook: true` in
+# .gald3r/config/AGENT_CONFIG.md.
+try {
+    $agentConfigPath = ".gald3r/config/AGENT_CONFIG.md"
+    $skillCaptureEnabled = $false
+    if (Test-Path $agentConfigPath) {
+        $configContent = Get-Content -Path $agentConfigPath -Raw -ErrorAction SilentlyContinue
+        if ($configContent -and $configContent -match '(?m)^\s*skill_capture_hook\s*:\s*true\b') {
+            $skillCaptureEnabled = $true
+        }
+    }
+
+    if ($skillCaptureEnabled -and $status -eq "completed") {
+        $candidatesDir = ".gald3r/reports/skill_candidates"
+        if (-not (Test-Path $candidatesDir)) {
+            New-Item -ItemType Directory -Path $candidatesDir -Force | Out-Null
+        }
+
+        $stampDate = Get-Date -Format "yyyyMMdd"
+        $stampTime = Get-Date -Format "HHmmss"
+        # Short, filesystem-safe conv id slice (or fallback to time stamp)
+        $convShort = if ($conversationId -and $conversationId -ne "unknown") {
+            ($conversationId -replace '[^A-Za-z0-9]', '').Substring(0, [Math]::Min(8, ($conversationId -replace '[^A-Za-z0-9]','').Length))
+        } else { $stampTime }
+        if (-not $convShort) { $convShort = $stampTime }
+        $stubName = "${stampDate}_${stampTime}_session${convShort}.md"
+        $stubPath = Join-Path $candidatesDir $stubName
+
+        if (-not (Test-Path $stubPath)) {
+            $stubBody = @"
+---
+status: pending
+captured_at: $(Get-Date -Format "yyyy-MM-dd HH:mm:ss")
+session_id: $conversationId
+loop_count: $loopCount
+session_status: $status
+task_id: ""        # fill in if this session worked on a specific task (e.g., 1174)
+---
+
+# SKILL Candidate Stub (pending agent input)
+
+Did this session reveal a reusable pattern? If yes, describe it in 3-5 lines
+matching the SKILL.md structure below. If no, set `status: discarded` in the
+frontmatter above and leave the body empty.
+
+## name
+<short kebab-case skill name, e.g., parallel-status-sweep>
+
+## when_to_use
+<one sentence — the trigger condition or user phrasing that activates it>
+
+## how_it_works
+<3-5 lines describing the procedure / steps / tool sequence>
+
+## example
+<minimal concrete example, code block, or invocation>
+
+---
+
+**Filled by**: agent / human
+**Next step**: ``@g-idea-farm`` scans this folder and promotes filled stubs to ``IDEA_BOARD.md``.
+"@
+            Set-Content -Path $stubPath -Value $stubBody -Encoding UTF8
+            try {
+                "$(Get-Date -Format 'yyyy-MM-dd HH:mm:ss') skill_capture stub written: $stubPath" |
+                    Add-Content -Path ".gald3r/logs/hook_diag.log" -Encoding UTF8 -ErrorAction SilentlyContinue
+            } catch {}
+        }
+    }
+} catch {
+    try {
+        "$(Get-Date -Format 'yyyy-MM-dd HH:mm:ss') skill_capture error: $_" |
+            Add-Content -Path ".gald3r/logs/hook_diag.log" -Encoding UTF8 -ErrorAction SilentlyContinue
+    } catch {}
+}
+
 @{} | ConvertTo-Json -Compress
 exit 0

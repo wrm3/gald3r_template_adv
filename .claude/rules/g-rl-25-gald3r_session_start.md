@@ -78,7 +78,7 @@ This prevents architectural drift and ensures changes respect subsystem boundari
 - If fetch fails or times out: skip silently (no error, no delay)
 
 **Step 2: Task Sync**
-- Compare TASKS.md entries to `.gald3r/tasks/` (v3 source of truth; sequential task IDs)
+- Compare TASKS.md entries to `.gald3r/tasks/**` (T1025 status subfolders: `open/`, `in-progress/`, `awaiting/`, `done/YYYY/MM/`, `closed/`; v3 source of truth; sequential task IDs)
 - Legacy v2: completed tasks may still be under `.gald3r/phases/phase*/` until migrated
 - Phantom = in TASKS.md but no matching `tasks/task{id}_*.md` (and not found in legacy archive if applicable)
 - **Re-work Surface**: for each `[📋]`/pending task, check if its `## Status History` table has a FAIL row as the last entry (a row where the `To` column is `pending` and `Message` starts with `FAIL:`). If so, surface:
@@ -155,7 +155,7 @@ When PCAC is active, `g-hk-pcac-inbox-check.ps1` runs this check automatically a
 - Skip silently when `sent_orders/` is empty or absent.
 
 **Step 7: Cascade Forward Check** (if `.gald3r/PROJECT.md` **Project Linking** section lists children with cascade)
-- Scan `.gald3r/tasks/` for any task with `cascade_depth_remaining > 0` AND `cascade_forwarded: false`
+- Scan `.gald3r/tasks/**` (all status subfolders) for any task with `cascade_depth_remaining > 0` AND `cascade_forwarded: false`
 - If found: forward cascades to children listed in topology (follow `g-broadcast` skill pattern but using the cascade chain metadata from the task)
 - Mark forwarded tasks as `cascade_forwarded: true`
 - Report: `Forwarded N cascade task(s) to: [child names]`
@@ -173,6 +173,14 @@ When PCAC is active, `g-hk-pcac-inbox-check.ps1` runs this check automatically a
 - Count entries where `next_refresh` field is earlier than today's date
 - If any stale entries found → display: `📚 N documentation note(s) overdue for refresh — run @g-ingest-docs REFRESH_STALE`
 - Skip silently if `_index.yaml` does not exist or vault is not configured
+
+**Step 10: Version Check** (only when MCP backend is reachable)
+- Call `gald3r_check_update(project_path=<cwd>, force=false)`
+- If result is cached, unreachable, or fails for any reason: skip silently (do not slow down session start)
+- If `update_available: true` AND `latestVersion` is NOT in `.gald3r/.update_skips`:
+  Display: `🔔 gald3r {latestVersion} available — run @g-upgrade to update`
+  (single line only — do not block the session or show full release notes)
+- If `update_available: false`: skip silently
 
 **Fix issues BEFORE proceeding with user request.**
 

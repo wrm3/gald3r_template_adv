@@ -1,4 +1,4 @@
-Set, view, or clear the persistent session goal (Ralph loop goal locking — Hermes v0.13.0 pattern): $ARGUMENTS
+Set, view, or clear a persistent session goal that locks the agent on target across iterations: $ARGUMENTS
 
 ## Usage
 - `@g-goal <description>` — set active goal (creates/overwrites `.gald3r/config/ACTIVE_GOAL.md`)
@@ -15,7 +15,7 @@ Set, view, or clear the persistent session goal (Ralph loop goal locking — Her
 - The goal survives context compression and session restarts (file-backed persistence).
 - A `turn_budget` (default 50) tracks consumed turns; when exhausted, the loop surfaces a budget notice and pauses for user direction.
 
-This is the gald3r implementation of the "Ralph loop" pattern from Hermes v0.13.0 (IDEA-HARVEST-092): lock the agent on target, re-check fit each turn, self-correct drift, and exit gracefully when the budget is exhausted.
+This locks the agent on target: the goal is re-checked each turn, drift is self-corrected, and the loop exits gracefully when the turn budget is exhausted.
 
 ## Sub-operations
 
@@ -64,7 +64,7 @@ This is the gald3r implementation of the "Ralph loop" pattern from Hermes v0.13.
 1. Delete `.gald3r/config/ACTIVE_GOAL.md` if it exists.
 2. Confirm: `🎯 Goal cleared.`
 
-## Ralph Loop Integration
+## Goal-Locked Loop Integration
 
 When `.gald3r/config/ACTIVE_GOAL.md` exists, every `@g-go`, `@g-go-code`, and `@g-go-go` invocation:
 
@@ -83,7 +83,7 @@ The same flag works with `@g-go --with-goal T{id}` and `@g-go-go --with-goal T{i
 ## Related
 
 - Spec: `.gald3r/tasks/task965_g_go_persistent_goal_ralph_loop.md`
-- Hermes v0.13.0 `/goal` Ralph loop pattern (IDEA-HARVEST-092)
+- Pattern: persistent session goal with turn-budget exit
 - Integrates with: `g-go`, `g-go-code`, `g-go-go`
 - Config file: `.gald3r/config/ACTIVE_GOAL.md`
 

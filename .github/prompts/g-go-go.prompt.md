@@ -16,6 +16,10 @@
 
 Asking "Continue?" "Which next?" "Looks like X — proceed?" mid-run is a **violation of this rule**. Apply the auto-plan, run the next iteration, and if the run cannot continue safely, emit the final summary and exit.
 
+**⛔ MENU ANTI-PATTERN — EXPLICITLY FORBIDDEN**: If you find yourself about to display a numbered list of options (e.g. "1. Run on T841 2. Run on T1006 3. Skip..."), STOP. Do NOT display that list. Instead: pick the highest-throughput option automatically (fast batch, lowest-ID eligible tasks, N=1 if needed) and execute it silently. The user will never see a menu from this command — they will only see work getting done. Displaying a menu and waiting for a keypress is equivalent to refusing to work.
+
+**⛔ CONTEXT WINDOW PANIC — FORBIDDEN STOP REASON**: "A full run would spawn 30+ subagents and consume major context" is NOT a valid reason to stop or ask. Claude Code has a 1M-token context window. The `context_budget_tokens` value in AGENT_CONFIG.md is a **context assembly budget** (how many tokens to use when building task context for a subagent) — it is NOT the model's total context limit. Stopping because of perceived context cost is a complexity-aversion stop, which is forbidden.
+
 ### ⛔ ANTI-QUITTING RULE — EQUALLY MANDATORY
 
 **Stopping because tasks appear "complex," "feature-class," "large," or "need scoping decisions" is a VIOLATION of this command.** Those are not hard stops. The hard-stop table is exhaustive — there is no ninth stop.
@@ -132,6 +136,15 @@ LOOP (iter < budget_remaining)
   │   NOTE: "looks complex" or "feature-class" is NOT empty. See Anti-Quitting Rule above.
   ├─ If all workspace-routed tasks block on member repo issues, fall back to --controller-only
   │   for this iteration and retry source_only / docs_only tasks before stopping.
+  │
+  ├─ [BUG-FIX INTERLACE] Before Phase 1 task work each iteration:
+  │   ├─ Check BUGS.md for any Open bugs with severity critical or high
+  │   │   If found → run @g-go-bugs severity:critical,high FIRST (within this iteration)
+  │   │   This ensures high-severity bugs (T1114 auto-bridged) don't sit behind lower-priority tasks
+  │   ├─ After critical/high bug-fix pass: proceed to Phase 1 task work (existing behavior)
+  │   └─ If budget_remaining > 1 and task queue is clear: run @g-go-bugs severity:medium,low
+  │       (capacity-permitting low-severity sweep)
+  │
   ├─ Phase 1 (g-go-code --swarm --workspace protocol):
   │   ├─ Skip non-expired [📝] / [🔄] / [🕵️] claims
   │   ├─ Partition into N buckets (N = smart agent count from g-go)
@@ -174,6 +187,8 @@ The loop never blocks on `[🔍]` dependencies of newly runnable downstream work
 | **Secret detection** | secret-pattern scanner fires on staged content | halt; do not commit |
 | **Missing required dependency** | task has `requires_verified_dependencies: true` and any dep is non-`[✅]` | skip task; if all queue is so blocked → halt |
 | **`[🚨]` user-attention item** | task or bug has user-attention status | skip item; never auto-retry |
+| **`[⏸️]` paused task** | task is in `paused` status / `tasks/paused/` folder | skip item; never auto-claim; user must manually unpause |
+| **`[🚫]` cancelled task** | task is in `cancelled` status / `tasks/cancelled/` folder | skip item; terminal state; never eligible for autopilot |
 | **Verification retry ceiling** | task has ≥3 FAIL cycles in Status History | mark `[🚨]`; halt if all queue is `[🚨]` |
 | **Run budget exhausted** | `iter >= budget_remaining` | clean halt |
 | **No runnable work** | recomputed queue is empty after a successful iteration — meaning EVERY remaining task fails at least one explicit 6-condition check or a listed hard stop. Complexity, task size, and "needs scoping" are NOT valid reasons. If ANY task passes all 6 checks, it is runnable — attempt it. | clean halt |

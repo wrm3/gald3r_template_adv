@@ -40,7 +40,7 @@ Two operations:
 
 ## Availability
 
-Ships in `gald3r_template_full/` and `gald3r_template_adv/` only — NOT in `gald3r_template_slim/`. Slim projects are pre-configured by gald3r itself; they do not manage their own tier definitions.
+Ships in `gald3r_template_full` and `gald3r_template_adv` external repos only — NOT in `gald3r_template_slim`. Slim projects are pre-configured by gald3r itself; they do not manage their own tier definitions.
 
 ## Related
 

@@ -73,6 +73,162 @@ When `$ARGUMENTS` provides explicit task/bug IDs, use those IDs exactly — skip
 
 ---
 
+## Prompt Template Variables (T1175 — Sandcastle promptArgs pattern)
+
+When the `g-go` coordinator dispatches a task to an implementer subagent (`g-go-code`) or to a reviewer subagent (`g-go-review`), the dispatch prompt is **templated**: the coordinator substitutes a fixed set of template variables at runtime before the subagent receives the prompt. This eliminates the "hand-edit the prompt per task" anti-pattern and gives a stable, audit-able dispatch surface.
+
+Supported template variables (resolved at coordinator dispatch time, never inside the bucket agent):
+
+| Variable | Resolved from | Example resolution |
+|----------|---------------|-------------------|
+| `{{TASK_ID}}` | Numeric ID of the queued task (no `T` prefix) | `1175` |
+| `{{TASK_TITLE}}` | `title:` field of the task YAML frontmatter | `Sandcastle g-go pipeline patterns` |
+| `{{SKILL_PATH}}` | Absolute path to the active gald3r skill folder for the dispatch role | `.claude/skills/g-skl-tasks` |
+| `{{BRANCH_NAME}}` | Worktree branch from `gald3r_worktree.ps1 -Action Create -Json` output | `gald3r/1175/code/gald3r_dev/autopilot-iter9` |
+| `{{TASK_FILE}}` | Path to the active task file under `.gald3r/tasks/**` | `.gald3r/tasks/open/task1175_sandcastle_g_go_pipeline_patterns.md` |
+| `{{WORKTREE_PATH}}` | Absolute worktree path from the helper JSON | `G:/gald3r_ecosystem/.gald3r-worktrees/gald3r_dev/1175-code-autopilot-iter9` |
+| `{{MODE}}` | Resolved model tier (`fast` | `standard` | task `preferred_model:` override) | `standard` |
+| `{{COORDINATOR_AGENT}}` | Slug of the coordinator agent for audit trail | `autopilot-iter9` |
+
+**Resolution rules:**
+
+1. All `{{VAR}}` tokens are resolved by simple string substitution **before** the prompt is sent to the subagent. The subagent receives a fully-materialized prompt — it never sees an unresolved `{{...}}` token.
+2. If a referenced variable cannot be resolved (e.g. `{{TASK_TITLE}}` for a task with no `title:` field), the coordinator logs the failure as `PROMPTARG_FAIL: {{VAR}} unresolved for T{id}` and **defers** the item rather than dispatching with a malformed prompt.
+3. Custom dispatch prompts may extend the template set, but the eight variables above are **guaranteed** present in every dispatch and must never be re-purposed for other meanings.
+4. Template variable substitution is a coordinator-only operation — bucket agents and reviewer subagents must NOT receive raw template strings to render themselves.
+
+**Why this matters**: a structured templating surface lets the coordinator log exactly which payload each subagent received (audit), lets dispatch prompts evolve without rewriting every bucket call-site, and lets future provider adapters (see "Provider-Agnostic Adapter Pattern" below) translate `{{VAR}}` into provider-specific argument shapes (OpenAI tool args, Anthropic content blocks, etc.) at a single chokepoint.
+
+## Swarm Lifecycle Hooks (T1175 — Sandcastle lifecycle pattern)
+
+`g-go --swarm` (and `g-go-code --swarm` / `g-go-review --swarm`) supports **optional** PowerShell lifecycle hook scripts that fire at bucket transition points. Hooks are advisory observation/notification surfaces — they MUST NOT mutate task state, write to shared `.gald3r/` ledgers, or affect coordinator routing decisions. They are intended for logging, metrics, external notifications (Slack/Rally/PagerDuty), and developer-machine status displays.
+
+### Hook contract
+
+The coordinator looks for the following optional PowerShell scripts in the active IDE hooks folder (first match wins across `.claude/hooks/`, `.cursor/hooks/`, `.agent/hooks/`, `.codex/hooks/`, `.copilot/hooks/`, `.opencode/hooks/`):
+
+| Hook script | Fires when | Coordinator-passed arguments |
+|-------------|-----------|-----------------------------|
+| `g-hk-on-bucket-start.ps1` | Immediately after a bucket worktree is created and just before the bucket agent is spawned | `-BucketId <int> -TaskIds <int[]> -WorktreePath <string> -Branch <string> -Mode <string>` |
+| `g-hk-on-bucket-complete.ps1` | After a bucket agent returns its handoff payload (PASS, partial, or with Blockers) and before coordinator reconciliation begins on that bucket | `-BucketId <int> -TaskIds <int[]> -PassCount <int> -BlockedCount <int> -DurationSeconds <int> -Verdict <string>` |
+| `g-hk-on-bucket-error.ps1` | When a bucket agent fails to return a parseable payload, times out, or returns an error verdict | `-BucketId <int> -TaskIds <int[]> -ErrorType <string> -ErrorMessage <string>` |
+
+### Coordinator invocation pattern
+
+```powershell
+# Pseudo-code the coordinator follows for each hook
+$hook = @(
+  ".cursor\hooks\g-hk-on-bucket-start.ps1",
+  ".claude\hooks\g-hk-on-bucket-start.ps1",
+  ".agent\hooks\g-hk-on-bucket-start.ps1",
+  ".codex\hooks\g-hk-on-bucket-start.ps1",
+  ".copilot\hooks\g-hk-on-bucket-start.ps1",
+  ".opencode\hooks\g-hk-on-bucket-start.ps1"
+) | Where-Object { Test-Path $_ } | Select-Object -First 1
+if ($hook) {
+  powershell -NoProfile -ExecutionPolicy Bypass -File $hook `
+    -BucketId 1 -TaskIds @(7,9) -WorktreePath "..." -Branch "..." -Mode "fast"
+}
+```
+
+### Hook rules
+
+- **Optional**: missing hook scripts are NOT an error. The coordinator continues silently when no hook is present.
+- **Read-only side effects**: hooks must NOT touch `.gald3r/TASKS.md`, `.gald3r/BUGS.md`, task/bug files, `CHANGELOG.md`, parity output, or git state. They may write to `.gald3r/logs/`, external systems, or stdout for the coordinator session log.
+- **Non-blocking**: hooks run with a 30-second timeout (override via `GALD3R_HOOK_TIMEOUT_SECONDS`). If a hook exceeds the timeout or exits non-zero, the coordinator logs `HOOK_FAIL: <script> exit=<n>` to the session summary and continues — a failed hook never blocks bucket progression.
+- **Idempotent**: hooks may be invoked more than once per bucket if the coordinator retries (e.g. on transient parse failures). Hook scripts must tolerate replay without producing duplicate side effects on external systems.
+- **Documented contract**: the hook script's parameter block MUST match the argument table above; coordinators will pass arguments by name (`-BucketId`, `-TaskIds`, etc.) and ignore additional declared parameters.
+
+### Contract definition only — no example scripts shipped
+
+This command defines the contract. Concrete hook scripts (e.g. "post bucket-complete to Slack", "write a metric to Datadog", "ping Rally with `Rally-Comment`") are NOT shipped in the gald3r template — operators write them per environment. Place hook scripts in the appropriate `<ide>/hooks/` folder using the names above; the coordinator discovers them automatically on the next swarm run.
+
+## Provider-Agnostic Adapter Pattern (T1175 — Sandcastle adapter pattern)
+
+`g-go` does not own model selection — by design. The gald3r framework is a **prompt orchestrator**: it routes work, partitions buckets, gates safety, and writes shared state, but the actual LLM call is delegated to the host IDE harness (Claude Code, Cursor, Codex, Gemini, OpenCode, Copilot). The provider-agnostic abstraction in gald3r is the `--mode` flag combined with the per-task `preferred_model:` field — see "Model-Tier Selection" below.
+
+**The adapter surface, in concrete terms:**
+
+| Layer | Owner | What it does |
+|-------|-------|--------------|
+| Tier selection (`fast` / `standard` / `cheap`) | `g-go` / `g-go-code` flag | Provider-agnostic intent: "this task wants a cheap model" or "this task needs a reasoning model". Recorded in Status History as `mode=<tier>`. |
+| Per-task override (`preferred_model:`) | Task YAML | Provider-agnostic intent: "this specific task needs Opus" or "this specific task is fine on Haiku", overrides session mode. |
+| Tier → concrete model resolution | Host IDE harness | The IDE maps `fast` → `claude-haiku-4-5` (Claude Code), `fast` → `gpt-4o-mini` or `haiku` (Cursor), etc. See the Mode Mapping table in "Model-Tier Selection" below for current resolutions per IDE. |
+| API call | Host IDE harness | gald3r never opens an HTTPS connection to a model provider. The IDE owns auth, rate limits, retries, and streaming. |
+
+**Why this matters for adoption**: a future IDE adding gald3r support (e.g. a new local-LLM CLI) does not require any gald3r changes. The new IDE adds its own `--mode` → `model-name` mapping; gald3r continues to emit `mode=<tier>` and `preferred_model:` annotations unchanged. The Sandcastle adapter pattern is satisfied because the abstraction lives at the tier-of-intent level, not the model-name level.
+
+**Limit**: this is a tier-of-intent abstraction, not a runtime model swap. gald3r cannot fail over from one provider to another mid-task if the IDE-configured model is rate-limited. That is properly an IDE-layer concern. Operators who need cross-provider failover should configure it in the IDE (e.g. Cursor's model-fallback settings) — gald3r will inherit it.
+
+## Iteration and Timeout Limits (T1175 — Sandcastle pattern)
+
+`g-go` accepts dual stop-conditions in `$ARGUMENTS` that bound the **pipeline** run (both phases combined). **Whichever limit hits first stops new work cleanly**; in-flight items finish, status writes batch, the review-result commit lands, and the pipeline summary is written.
+
+| Flag | Default | Override env var | Behavior |
+|------|---------|------------------|----------|
+| `--max-iterations N` | `5` | `GALD3R_MAX_ITERATIONS` | Maximum number of items the pipeline will process this session (Phase 1 implementation count). Once N items reach `[🔍]` or Blocked, Phase 1 stops claiming and Phase 2 reviews only those N items. |
+| `--timeout-minutes M` | `30` | `GALD3R_TIMEOUT_MINUTES` | Wall-clock budget from pipeline start. When elapsed minutes ≥ M and the current item finishes, Phase 1 stops claiming. If Phase 2 has not yet spawned when the timer expires, it still spawns once on the already-checkpointed items (the user has earned a review pass for the work that completed). |
+
+**Enforcement rules:**
+
+- Limits are checked between items, never preemptively. An in-flight item is never interrupted mid-edit.
+- `--max-iterations` counts Phase 1 attempts (PASS + BLOCKED items). It does not separately bound Phase 2 — once Phase 1 stops, Phase 2 reviews whatever made it to `[🔍]`.
+- `--timeout-minutes` is wall-clock from pipeline start (NOT from each phase start). A pipeline at minute 28 will not start a new Phase 1 item even if Phase 1 has been the only active phase.
+- In `--swarm` mode, limits apply to the coordinator's scheduling: `--max-iterations` caps total items partitioned across all buckets; `--timeout-minutes` is a coordinator-level wall-clock fence.
+- Either limit hitting MUST be logged in the Pipeline Session Summary as `Stop reason: queue exhausted | max-iterations (N of N) | timeout-minutes (M elapsed) | hard-gate blocker`.
+- Explicit `$ARGUMENTS` flags override env vars; env vars override defaults.
+
+**Why dual limits**: see the matching section in `g-go-code.md` — iteration alone is brittle for tasks of mixed size; wall-clock alone is brittle when many small items finish cleanly. Together they bound both work and time.
+
+## Model-Tier Selection (`--mode fast|standard|cheap`)
+
+`g-go` accepts an optional `--mode` flag in `$ARGUMENTS` that selects model-tier policy for
+the pipeline. The flag composes with `--swarm`, `--workspace`, and any task/bug filter.
+
+### Mode mapping table
+
+| `--mode` | Tier | Claude model | Cursor model | Use when |
+|----------|------|--------------|--------------|----------|
+| `fast` (alias `cheap`) | haiku-class | `claude-haiku-4-5` | `gpt-4o-mini` / `haiku` | Simple task batches, cost-sensitive runs, bucket agents on parallel-safe work |
+| `standard` (default) | sonnet-class | `claude-sonnet-4-6` | `sonnet-4` | Most pipelines, coordinator role, anything requiring real reasoning |
+| (no flag) | inherit | session default | session default | Fall through to the IDE-configured default model |
+
+`cheap` is a strict alias for `fast` (same tier, same model mapping).
+
+### Coordinator vs bucket inheritance (AC4)
+
+`g-go` (and `g-go --swarm`) treats `--mode` differently for the coordinator role and bucket
+agents:
+
+- **Coordinator** — always defaults to `standard` regardless of the session `--mode` flag.
+  Coordinators route work, plan partitions, perform reconciliation, and write shared
+  `.gald3r/` state — these operations require Sonnet-class reasoning. The only way to force
+  the coordinator onto a lower tier is to pass `--mode fast` AND set the env override
+  `GALD3R_ALLOW_FAST_COORDINATOR=1` (intended for experimental/automated regression suites,
+  not production pipelines).
+- **Bucket agents (Phase 1 implementers)** — inherit the session `--mode` flag. When the
+  session is launched as `@g-go --swarm --mode fast`, every bucket implementer runs in
+  `fast` mode (haiku-class). When the session is `@g-go --swarm --mode standard` or
+  `@g-go --swarm` with no flag, buckets run `standard`.
+- **Phase 2 reviewer** — defaults to `standard` for adversarial review. Override only with
+  explicit `--mode fast` on the session AND a per-task `preferred_model:` declaring the
+  reviewer tier; otherwise the reviewer agent always runs `standard` to protect the
+  independence guarantee.
+- **Task YAML `preferred_model:` overrides** — when a queued task sets `preferred_model:`
+  (`haiku` | `sonnet` | `opus` | `fast` | `standard`) in its frontmatter, that overrides the
+  bucket inheritance for that specific task. Use this to keep one complex task on Opus while
+  the rest of the swarm runs on Haiku, or vice versa.
+
+### Status History mode logging (AC5)
+
+When Phase 1 claims a task and moves it to `[🔄]` / `in-progress`, the claim's Status History
+row MUST include `mode=<tier>` in the `Message` column (see `g-go-code` for the full row
+template). The coordinator records its own routing mode and each bucket agent records its
+inherited mode independently. This applies to both single-agent `g-go` and swarm
+coordination.
+
+---
+
 ### PCAC Inbox Gate (Only When PCAC Is Configured)
 
 Before task claiming, implementation, verification, planning, or swarm partitioning, first determine whether this project is a PCAC participant. PCAC is configured only when `.gald3r/linking/link_topology.md` declares at least one parent/child/sibling relationship, or `.gald3r/PROJECT.md` explicitly declares PCAC project linking relationships. A Workspace-Control manifest and local `INBOX.md` alone do not make the project a PCAC group member.
@@ -127,7 +283,7 @@ Also re-run the **Gald3r Housekeeping Commit Gate** with `-Mode post-write -Appl
 
 Immediately before the coordinator merges bucket results into the primary checkout, updates shared `.gald3r` indexes or task/bug files as coordinator-owned writes, touches `CHANGELOG.md`, or creates checkpoint / review-result commits: **re-run** `git status --short` on the **orchestration root and every other repository root in the computed touch set** (steps 1 + 3 + 4). For `--swarm` runs, if unrelated dirty paths appear in **any** of those roots during parallel bucket work, **fail closed** — do not apply those shared writes; keep patches, artifacts, and evidence; report **per-root** blockers using the same blocker family as checkpoint and review-result commits.
 
-## Session-Start: Load Active Goal (Ralph Loop)
+## Session-Start: Load Active Goal (Goal-Locked Loop)
 
 > Fires immediately after safety gates pass, before Phase 1 work begins. If no active goal is set, this section is a no-op.
 
@@ -152,7 +308,7 @@ If no `ACTIVE_GOAL.md` exists and no `--with-goal` flag is present, proceed with
 
 **Goal-aligned AC gate** (Phase 1 implementation only): after each AC-gate iteration in Phase 1, the implementing agent (or per-bucket implementer) self-checks: "Did this action advance `<description>`?" If not, re-anchor on the goal in the next reasoning step. This is a soft drift-correction — not a hard block.
 
-See `g-goal` command (parity across all 6 IDE platforms) for the full Ralph loop specification.
+See `g-goal` command (parity across all 6 IDE platforms) for the full goal-locked loop specification.
 
 ---
 
@@ -160,6 +316,40 @@ See `g-goal` command (parity across all 6 IDE platforms) for the full Ralph loop
 
 Phase 1 runs the full `g-go-code` protocol. Every completed item is marked `[🔍]`.
 During Phase 1, the implementation-only boundary still applies: run smoke/unit readiness checks only, and do not invoke full adversarial review. Only Phase 2 may spawn the independent reviewer.
+
+### Step 0a — Shell Router (T1144, before any tool call)
+
+Before issuing any shell, hook, or git command in this run, **probe once** and lock the shell route for the session. This complements the always-apply rule `g-rl-00-always` §6 ("Shell Context — OS + Shell Probe") and prevents the bash-vs-PowerShell token-waste loop documented in BUG-031 / T1144.
+
+**Probe (one signal, not a diagnostic loop):**
+
+| Signal | Route |
+|---|---|
+| `$env:OS` contains `Windows`, or `$IsWindows -eq $true`, or harness reports `Shell: PowerShell` | **PowerShell route** — use a `PowerShell` / `Shell` tool when available |
+| `uname -s` returns `Linux` / `Darwin`, `$BASH_VERSION` is set, or harness reports `Shell: Bash` | **bash/zsh route** — use the `Bash` tool |
+
+**Lock and route every subsequent invocation through the chosen interpreter.** Do not mix syntaxes inside a single tool call — the tool, not the snippet, picks the parser. If the harness exposes both `Bash` and `PowerShell` tools on Windows, prefer the PowerShell tool for PowerShell snippets.
+
+Concrete syntax differences to keep in mind (mirrors `g-rl-00-always` §6):
+
+- Arrays: `@(...)` (PS) vs `(...)` / `arr=(a b c)` (bash)
+- Statement separators: `;` sequential (PS, both); `&&` short-circuit (bash always, PS 7+)
+- Env vars: `$env:VAR` (PS) vs `$VAR` / `${VAR}` (bash)
+- Paths: `\` (PS, `/` also accepted on Windows) vs `/` (bash)
+- File-exists test: `Test-Path $p` (PS) vs `[ -f "$p" ]` (bash)
+- Pipeline filters: `Where-Object { ... }` (PS) vs `grep` / `awk` / `xargs` (bash)
+
+**Regression canonical (BUG-031 family)** — the PCAC inbox hook lookup snippet that triggered T1144:
+
+```powershell
+$hook = @( ".cursor\hooks\g-hk-pcac-inbox-check.ps1", ".claude\hooks\g-hk-pcac-inbox-check.ps1" ) | Where-Object { Test-Path $_ } | Select-Object -First 1
+```
+
+This snippet is PowerShell-only — invoking it via `Bash(...)` produces `syntax error near unexpected token '('` (exit 2). That error is a **tool-routing failure**, NOT a real PCAC conflict or hook-missing state. Re-route through PowerShell and the call succeeds; do not enter an error-driven retry loop.
+
+The same router applies to **Phase 2 (review)** below — the reviewer subagent must inherit the route and not re-probe.
+
+---
 
 ### 1. Load Context (Before Touching Anything)
 
@@ -186,6 +376,8 @@ Read in this order:
 - **Skip non-expired `[📝]` speccing claims** — log owner/expiry as "Speccing-In-Progress"
 - For stale `[📝]` claims, append a Status History takeover row naming the prior `spec_owner` before proceeding
 - **NOT** `[🚨]` — skip entirely
+- **Skip `[⏸️]` (paused) tasks** — stored in `tasks/paused/`; must be manually unpaused before g-go picks them up
+- **Skip `[🚫]` (cancelled) tasks** — stored in `tasks/cancelled/`; terminal state, never eligible for implementation
 - No unmet dependencies, with the rolling-pipeline exception: checkpointed `[🔍]` dependencies count as implementation-satisfied unless the downstream task declares `requires_verified_dependencies: true`; not `ai_safe: false`
 - Priority: Critical → High → Medium → Low
 
@@ -399,6 +591,37 @@ If review FAILs an item that later rolling-wave work consumed, requeue the faile
 
 ---
 
+## Follow-Up Task Filing Gate (MANDATORY — runs before Pipeline Session Summary)
+
+Before writing the Pipeline Session Summary, the coordinator MUST handle all follow-up items surfaced during the run. **Named-but-not-filed follow-ups are a policy violation** — they silently disappear and require manual rescue later.
+
+1. **Identify ALL follow-up items** surfaced during implementation or review:
+   - Reviewer notes flagging deferred sub-features, gaps, or "non-blocking" items
+   - Items the implementer found out-of-scope but necessary
+   - Stub/TODO items that got `TODO[TASK-X→TASK-Y]` annotations (each Y must be a real file)
+   - Anything described as "can be done later", "for tracking", or "named for follow-up"
+
+2. **For each follow-up item, call `g-skl-tasks CREATE TASK`** to create an actual task file with:
+   - A proper `title:` describing the work
+   - `type: feature | bug_fix | refactor` as appropriate
+   - `priority: low` (default; raise only when urgency is clear)
+   - An `## Objective` section describing what the follow-up must accomplish
+   - `dependencies: [T{originating_task_id}]` linking it to the task that surfaced it
+   - Capture the returned `task_id` (e.g. `T1110`) — this is the ONLY valid identifier
+
+3. **Reference actual task IDs** (e.g. `T1110`) in the Pipeline Session Summary — NEVER a slug like `T1043-followup-template-gitignore`. A slug without a real task file is a policy violation equivalent to data loss.
+
+4. **If task creation fails** for any reason: log it as a `BLOCKER` in the Pipeline Session Summary — do NOT silently name-only the follow-up.
+
+> | Rationalization | Reality |
+> |---|---|
+> | "It's non-blocking, I'll name it for tracking" | Named-only = lost forever. Create the task file or it doesn't exist. |
+> | "The user can create it later" | The user has moved on. The pipeline IS the filing point. |
+> | "I'm not sure it's needed" | Create with `priority: low`. User can archive it. Costs 30 seconds. |
+> | "It's just a minor follow-up" | Minor items get lost too. T1110–T1113 were rescued manually because of this. |
+
+---
+
 ## Pipeline Session Summary
 
 ```markdown
@@ -423,6 +646,11 @@ If review FAILs an item that later rolling-wave work consumed, requeue the faile
 - {member_repo}: T{id} [AUTO-MERGED→dev] (ff)
 - {member_repo}: T{id} [AUTO-MERGED→dev] (no-ff)
 - Blocked (fallback): T{id} — {reason}
+
+### Follow-Up Tasks Filed
+- T{id}: {title} — {reason surfaced}
+- T{id}: {title} — {reason surfaced}
+(none surfaced this run — or list all filed task IDs with titles)
 
 ### Final Status
 - ✅ Completed (verified): 2
@@ -505,6 +733,10 @@ Coordinator performs one final shared-write pass for `TASKS.md`, `BUGS.md`, task
 - {member_repo}: T{id} [AUTO-MERGED→dev] (no-ff)
 - Blocked (fallback): T{id} — {reason}
 
+### Follow-Up Tasks Filed
+- T{id}: {title} — {reason surfaced}
+(none surfaced this run — or list all filed task IDs with titles)
+
 ### Final Status
 - ✅ Completed (verified): {N}
 - 📋 Failed (back to pending): {M}
@@ -574,7 +806,7 @@ Both at the periodic 30-minute heartbeats and at the final summary, `--workspace
 [WORKSPACE] Mode: workspace[+swarm]
 [WORKSPACE] Manifest: .gald3r/linking/workspace_manifest.yaml
 [WORKSPACE] Considered repos: gald3r_dev, gald3r_template_*, gald3r_throne, ...
-[WORKSPACE] Skipped repos: gald3r_valhalla (lifecycle: frozen_marker_only), maestro2 (write_allowed: false)
+[WORKSPACE] Skipped repos: gald3r_valhalla (lifecycle: frozen_marker_only), external_repo (write_allowed: false)
 [WORKSPACE] Runnable items: {N}    Blocked: {K}    Deferred: {D}
 [WORKSPACE] Per-repo blockers: gald3r_template_full (unrelated dirty: .github/...), ...
 [WORKSPACE] Next recommended: {command}
@@ -622,7 +854,36 @@ Member `.gald3r/` may contain ONLY `.identity` and `PROJECT.md`. `g-skl-workspac
 @g-go --workspace tasks 220, 221
 @g-go --swarm --workspace
 @g-go --swarm --workspace tasks 220, 221, 222
+@g-go --mode fast tasks 7, 9
+@g-go --mode standard tasks 7, 9
+@g-go --swarm --mode fast tasks 7, 9, 10, 11
+@g-go --swarm --mode cheap bugs-only
+@g-go --max-iterations 3 tasks 7, 9, 10, 11, 12
+@g-go --timeout-minutes 15 bugs-only
+@g-go --max-iterations 10 --timeout-minutes 60 --swarm
+@g-go --swarm --workspace --max-iterations 8 --timeout-minutes 45
 ```
+
+`--mode fast` / `--mode cheap` route bucket implementers to haiku-class models; the
+coordinator stays on sonnet-class for routing and reconciliation. `--mode standard` is the
+explicit form of the default. See the "Model-Tier Selection" section above for full
+inheritance rules.
+
+`--max-iterations N` (default `5`, env `GALD3R_MAX_ITERATIONS`) and `--timeout-minutes M`
+(default `30`, env `GALD3R_TIMEOUT_MINUTES`) bound the pipeline run. Whichever fires first
+stops new claims cleanly; in-flight work finishes and the pipeline writes its summary. See
+"Iteration and Timeout Limits" above for full semantics.
+
+Swarm lifecycle hooks (`g-hk-on-bucket-start.ps1`, `g-hk-on-bucket-complete.ps1`,
+`g-hk-on-bucket-error.ps1`) are discovered automatically when present in `.cursor/hooks/`,
+`.claude/hooks/`, `.agent/hooks/`, `.codex/hooks/`, `.copilot/hooks/`, or `.opencode/hooks/`.
+Hook scripts are read-only observers (logging, notification, metrics); they MUST NOT mutate
+`.gald3r/` state or git state. See "Swarm Lifecycle Hooks" above for the parameter contract.
+
+Dispatch prompts use template variables (`{{TASK_ID}}`, `{{TASK_TITLE}}`, `{{SKILL_PATH}}`,
+`{{BRANCH_NAME}}`, `{{TASK_FILE}}`, `{{WORKTREE_PATH}}`, `{{MODE}}`, `{{COORDINATOR_AGENT}}`)
+resolved at coordinator-dispatch time. Subagents never see unresolved `{{...}}` tokens. See
+"Prompt Template Variables" above.
 
 **For manual control (two separate sessions):**
 ```

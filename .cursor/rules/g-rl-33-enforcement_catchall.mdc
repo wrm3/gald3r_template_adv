@@ -212,6 +212,24 @@ If code files were modified in this response and no active task or bug is refere
 | "The user didn't ask for a task" | The system requires it. Create it retroactively. |
 | "It's just a config change" | Config changes break things. Track them. |
 
+## Follow-Up Task Filing Gate (Pipeline Runs — HARD RULE)
+
+When a `g-go`, `g-go-code`, or `g-go-review` session produces a summary that includes ANY follow-up items, those items MUST be created as real task files via `g-skl-tasks CREATE TASK` **before** the summary is written. This rule fires even when no gald3r task manager is explicitly active.
+
+**Violation indicators** — if you see any of these in a pipeline session summary, the gate was missed:
+- Bullet points with slug-style names like `T1043-followup-*` or `T{id}-followup-{slug}`
+- A section titled "Follow-ups created (named, not blocking)" or similar
+- Any follow-up item without a real task ID (e.g. `T1110`)
+
+**Required response**: Do NOT silently accept the incomplete state. Report the naming violation and create the missing task files via `g-skl-tasks CREATE TASK` immediately.
+
+| Rationalization | Reality |
+|---|---|
+| "It's named for tracking" | Named-only = permanently lost. No file = no task. |
+| "It's non-blocking" | Non-blocking items still need task files. Priority: low is fine. |
+| "The user can file it later" | The user has moved on. The pipeline IS the filing point. |
+| "It was just a slug, not a real task" | Exactly the violation. Create the real task now. |
+
 ## Delegation Hint
 
 If the user mentions a task ID (e.g., "task 42", "#103") without explicitly invoking a gald3r agent:

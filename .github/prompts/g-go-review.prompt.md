@@ -70,10 +70,12 @@ Immediately before the coordinator merges bucket results into the primary checko
 Read in this order:
 - `.gald3r/TASKS.md` — identify all `[🔍]` (Awaiting Review) tasks and skip non-expired `[🕵️]` verification claims
 - `.gald3r/BUGS.md` — identify all bugs with `[🔍]` status in the index table and skip non-expired `[🕵️]` verification claims
-- Individual task files for each `[🔍]` task item — read acceptance criteria
+- Individual task files for each `[🔍]` task item — **read `## Handoff Report` first** (Files Changed, Commands Run, Issues Discovered, Left Undone, Procedure Compliance), then read acceptance criteria. The Handoff Report is the primary review context; use it to focus verification on changed files and discovered issues.
 - Individual bug files (`.gald3r/bugs/bug*.md`) for each `[🔍]` bug — read fix description and affected file/line
 - `git log --oneline -10` — understand what was recently implemented
 - `.gald3r/CONSTRAINTS.md` — guardrails
+
+> If a task has no `## Handoff Report` section, note "No Handoff Report" in your review summary and proceed to read the implementation files listed in acceptance criteria directly.
 
 ### 2. Build the Review Queue
 
@@ -170,7 +172,23 @@ For each `[🕵️]` task claimed by this verifier:
   - If `review_isolation_mode: worktree`, inspect files under `review_worktree_path`.
   - If `review_isolation_mode: snapshot`, inspect files under `review_snapshot_path` read-only.
 **b2) Workspace boundary check** — run `g-skl-workspace` ENFORCE_SCOPE against changed paths and the task/bug routing metadata; unknown manifest repo IDs, undeclared member writes, docs-only source changes, or member writes without manifest permission fail the item.
-**b3) Security pass** — for tasks that touch web/API/auth/data/integration code, apply the OWASP Top 10 checklist from `g-skl-code-review` Step 2 to changed files. For tasks adding new services, cross-process boundaries, or significant architectural changes, apply STRIDE. Security findings are rated **Critical / High / Medium / Low**. Report each finding with OWASP/STRIDE category, file:line, and recommended fix. Code annotated with `# nosec: <justification>` or `# security-exempt: <reason>` is waived. Any Critical or High finding → flag as unmet criterion (FAIL).
+**b3) Security pass (inline OWASP/STRIDE)** — for tasks that touch web/API/auth/data/integration code, apply the OWASP Top 10 checklist from `g-skl-code-review` Step 2 to changed files. For tasks adding new services, cross-process boundaries, or significant architectural changes, apply STRIDE. Security findings are rated **Critical / High / Medium / Low**. Report each finding with OWASP/STRIDE category, file:line, and recommended fix. Code annotated with `# nosec: <justification>` or `# security-exempt: <reason>` is waived. Any Critical or High finding → flag as unmet criterion (FAIL).
+
+**Step S — Two-phase security scan (T1167)** — runs **after** b3 inline security pass and **before** the `[🔍] → [✅]` write at step (e). Invokes `g-skl-security-scan` in **Two-Phase Mode** when the candidate review source has any changed files outside of `*.md` / `docs/**` / `CHANGELOG.md` / `README.md` / `LICENSE`.
+
+  1. **Eligibility** — list changed files via `git diff HEAD~1..HEAD --name-only` against the candidate review source (worktree branch/SHA established in Step 2b, or snapshot path). If all changed paths match the doc-only allowlist, mark Step S as `SKIPPED` and continue to (c).
+  2. **Invocation** — call `@g-skl-security-scan` with the active task ID and review isolation mode passed through. The skill writes `.gald3r/reports/security/threat_model.md` (Phase 1) and `.gald3r/reports/security/security_report_YYYYMMDD_HHMMSS.md` (Phase 2).
+  3. **Gate verdict** — the skill returns one of:
+     - `verdict: PASS` (no Critical/High findings, or all High findings carry justified `# nosec:` waivers) → record paths in the review note; continue to (c).
+     - `verdict: BLOCK` (any unwaived Critical or High finding) → treat each blocking finding as an unmet criterion. For the FAIL handling in step (e):
+       - Append the security report path to the task's `## Review Note` section.
+       - The Status History FAIL row message must name the blocking findings (e.g., `FAIL: Step S — [HIGH-001] SQL injection in api/users.py:87 (see security_report_20260514_213045.md)`).
+     - `verdict: SKIPPED` (doc-only diff, missing diff range, or `requires_security_scan: false` and no non-doc changes) → record skip reason in the review note; continue to (c).
+  4. **BUG cross-link** — for each Critical/High finding, `g-skl-security-scan` auto-files a BUG via `g-skl-bugs REPORT BUG` (severity mapped from finding severity). The returned BUG IDs are recorded in the security report and in the review session summary "Found pre-existing bugs" list.
+  5. **Waivers** — a High finding is honoured as waived only when its line carries a non-empty `# nosec: <≥4-word justification>` or `# security-exempt: <reason>` annotation. Critical findings are NEVER waivable from inside Step S.
+  6. **Doc-only short-circuit** — Step S is intentionally skipped when changed files match `^(\*.md|docs/.*|CHANGELOG\.md|README\.md|LICENSE|\.gitignore)$`. The skip is recorded in the review note as `Step S SKIPPED — doc-only diff`.
+  7. **Idempotency** — re-running Step S overwrites `threat_model.md` but never overwrites a timestamped `security_report_*.md`. Multiple runs accumulate; the latest report's verdict is the gate verdict for this review pass.
+
 **c) Score PASS or FAIL per criterion**
 **d) Bug check during review** — if you encounter a bug not covered by the task's ACs:
   - Determine: introduced by this task? → flag as unmet criterion → task FAIL
@@ -225,7 +243,7 @@ For each `[🕵️]` task claimed by this verifier:
 **Per-task output format:**
 ```
 REVIEW: Task 014 — g-go role separation
-  ✅ g-go-code.md created in gald3r_template_full/.cursor/commands/
+  ✅ g-go-code.md created in G:/gald3r_ecosystem/gald3r_template_full/.cursor/commands/
   ✅ g-go-review.md created with NEW-SESSION warning
   ❌ g-go.md not updated — self-review banner missing
   → RESULT: FAIL — moved back to [📋] — reason recorded in task file
@@ -290,6 +308,10 @@ Total: 3 PASS / 2 FAIL  (Tasks: 2P/1F  |  Bugs: 1P/1F)
 ### 🧠 Auto-Learn Summary
 {N} new fact(s) appended to `.gald3r/learned-facts.md` (or "none / file not found").
 
+### Follow-Up Tasks Filed
+- T{id}: {title} — {why surfaced during review}
+(none surfaced — or list all filed task IDs with titles. Named-but-not-filed follow-ups are a policy violation.)
+
 ### Recommended Next Steps
 - Re-implement failed tasks: {list}
 - Re-fix failed bugs: {list}
@@ -317,10 +339,12 @@ In `g-go-review --swarm`, reviewers are evidence producers. They must not write 
 
 - PASS/FAIL payloads and criteria evidence.
 - Proposed Status History rows.
-- Any bug/task follow-up requests.
+- Any bug/task follow-up requests (reviewer identifies; coordinator MUST file them as real tasks).
 - Fix-forward patch bundles only when the user explicitly authorized fix-forward review.
 
 The coordinator alone performs `.gald3r` status writes, `TASKS.md`/`BUGS.md` updates, changelog/docs updates, generated prompt regeneration, parity sync, final staging, and review-result commit operations.
+
+**Follow-Up Task Filing Gate (coordinator responsibility)**: After collecting all reviewer follow-up requests, and before writing the final Review Session Summary, the coordinator MUST call `g-skl-tasks CREATE TASK` for each follow-up item. Reference actual task IDs (e.g. `T1110`) in the summary — NEVER slug-style names like `T1043-followup-*`. Named-but-not-filed follow-ups are a policy violation.
 
 ### Review-Result Commit
 
@@ -430,6 +454,10 @@ After all reviewers complete:
 
 ### Reviewed FAIL → back to [📋]
 - T-018: {title} — {failure reason}
+
+### Follow-Up Tasks Filed
+- T{id}: {title} — {why surfaced during review}
+(none surfaced — or list all filed task IDs with titles. Named-but-not-filed follow-ups are a policy violation.)
 
 ### Recommended Next Steps
 - Re-implement failed tasks: @g-go-code tasks {failed_ids}

@@ -15,7 +15,7 @@ alwaysApply: true
 
 The workspace controller (e.g. `gald3r_dev`) is the source of truth for live tasks, bugs, plans, features, releases, subsystems, constraints, ideas, PRDs, and cross-project orchestration. Members are independent git roots that hold source code, packaging, and history — but never live project task state.
 
-Template directories under `gald3r_template_slim/`, `gald3r_template_full/`, `gald3r_template_adv/` are the **only** legitimate exception: their `.gald3r/` content is intentional install template content.
+External workspace member template repos (`G:/gald3r_ecosystem/gald3r_template_slim`, `G:/gald3r_ecosystem/gald3r_template_full`, `G:/gald3r_ecosystem/gald3r_template_adv`) are the **only** legitimate exception: their `.gald3r/` content is intentional install template content.
 
 This invariant fires for every workflow that may write `.gald3r/` to an arbitrary destination: `g-skl-setup`, `g-skl-pcac-spawn`, `g-skl-pcac-adopt`, `g-skl-workspace` SPAWN_APPLY / ADOPT_APPLY, `gald3r_install`, and any future scaffold/repair flow.
 
@@ -24,7 +24,7 @@ This invariant fires for every workflow that may write `.gald3r/` to an arbitrar
 - **Bug**: `BUG-021` (Critical) — Workspace-Control scaffold/setup can create live `.gald3r/` control planes inside member repositories.
 - **Task**: `Task 213` (spec v1.1) — defines the marker-only policy and its enforcement layers.
 - **Manifest**: `.gald3r/linking/workspace_manifest.yaml` → `routing_policy.member_gald3r_invariant`.
-- **Helper scripts** (gald3r_dev root + `gald3r_template_full/scripts/` for installed projects):
+- **Helper scripts** (gald3r_dev root + `G:/gald3r_ecosystem/gald3r_template_full/scripts/` for installed projects):
   - `scripts/check_member_repo_gald3r_guard.ps1` — marker-aware preflight
   - `scripts/bootstrap_member_gald3r_marker.ps1` — only sanctioned writer of member `.gald3r/`
   - `scripts/remediate_member_gald3r_marker.ps1` — non-destructive cleanup of forbidden member content

@@ -15,7 +15,7 @@ Activates **g-skl-res-apply** → REVIEW, DRY-RUN, or APPLY operation.
 @g-res-apply APPLY {slug} --target {child_project}   # route to a child project (T118)
 ```
 
-- `{slug}` — the folder name under `vault/research/recon/`, e.g., `maestro2`, `gald3r_forge`
+- `{slug}` — the folder name under `vault/research/recon/`, e.g., `external_repo`, `gald3r_forge`
 
 ## Operations
 
@@ -70,17 +70,17 @@ Automatically detects when a proposed subsystem overlaps with an existing one:
 ## Examples
 
 ```
-# Preview maestro2 recon report (nothing written)
-@g-res-apply REVIEW maestro2
+# Preview recon report (nothing written)
+@g-res-apply REVIEW external_repo
 
-# Intake all clean-room-approved maestro2 features
-@g-res-apply APPLY maestro2 --mode=all
+# Intake all clean-room-approved features
+@g-res-apply APPLY external_repo --mode=all
 
 # Only intake approved gald3r_forge features
 @g-res-apply APPLY gald3r_forge --mode=approved
 
-# Just the character system from maestro2
-@g-res-apply APPLY maestro2 --mode=category:character-system
+# Just one category of features
+@g-res-apply APPLY external_repo --mode=category:character-system
 ```
 
 ## Input File

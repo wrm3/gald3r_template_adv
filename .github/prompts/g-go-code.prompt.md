@@ -5,6 +5,53 @@ Implementation-only backlog execution: $ARGUMENTS
 This command runs **coding and bug-fixing** — it does NOT verify. Every completed item is
 marked `[🔍]` (Awaiting Verification) so a **separate agent session** can independently confirm it.
 
+## Model-Tier Selection (`--mode fast|standard|cheap`)
+
+`g-go-code` accepts an optional `--mode` flag in `$ARGUMENTS` that selects the model tier for
+this session. The flag is **advisory**: when running inside Cursor or any IDE that controls
+its own model selection, `--mode` is recorded in Status History but the actual model used is
+whatever the IDE is configured for. When running through a CLI that supports model override
+(`claude --model ...`, `codex --model ...`), agents map `--mode` to the appropriate `--model`
+argument before spawning subagents.
+
+### Mode mapping table
+
+| `--mode` | Tier | Claude model | Cursor model | Use when |
+|----------|------|--------------|--------------|----------|
+| `fast` (alias `cheap`) | haiku-class | `claude-haiku-4-5` | `gpt-4o-mini` / `haiku` | Simple tasks, cost-sensitive runs, bucket agents on parallel-safe work |
+| `standard` (default) | sonnet-class | `claude-sonnet-4-6` | `sonnet-4` | Most tasks, coordinator role, anything requiring real reasoning |
+| (no flag) | inherit | session default | session default | Fall through to the IDE-configured default model |
+
+`cheap` is a strict alias for `fast` (same tier, same model mapping). Use whichever reads
+more naturally for the session — they are interchangeable.
+
+### Resolution precedence (highest wins)
+
+1. **Task YAML `preferred_model:`** — if the task being implemented sets `preferred_model:`
+   (`haiku` | `sonnet` | `opus` | `fast` | `standard`) in its frontmatter, that overrides the
+   session `--mode` for that specific task only. Use this to force a complex task onto Opus
+   even when the session is running in `fast`, or to keep a trivial follow-up on Haiku even
+   when the session is running in `standard`.
+2. **Session `--mode` flag** — when `$ARGUMENTS` contains `--mode fast`, `--mode standard`,
+   or `--mode cheap`, that mode applies to every queued item that does not override.
+3. **Session default** — when neither is set, fall through to whatever the host IDE is
+   currently configured for. Do not pick a tier silently.
+
+### Status History mode logging (AC5)
+
+When the implementation agent claims a task and moves it to `[🔄]` / `in-progress` (or
+directly to `[🔍]` / `awaiting-verification` for fast single-pass items), the claim's Status
+History row MUST include the resolved mode in its `Message` column. Format:
+
+```
+| YYYY-MM-DD HH:MM | pending | in-progress | autopilot-impl | mode=fast — Claimed for implementation |
+| YYYY-MM-DD HH:MM | in-progress | awaiting-verification | autopilot-impl | mode=standard — Implementation complete; {1-line summary} |
+```
+
+The `mode=<tier>` token (`fast`, `standard`, `cheap`, `inherit`) is the audit trail.
+Reviewers and post-mortem analysis use it to correlate model-tier choice with implementation
+quality. Omitting it on the claim row is a procedural violation.
+
 ## Implementation-Only Boundary
 
 `g-go-code` and `g-go-code --swarm` must not spawn reviewer agents, run `g-go-review`, run `g-go-review-swarm`, or invoke `gald3r-code-reviewer` / full adversarial review subagents.
@@ -16,6 +63,42 @@ Allowed implementation readiness checks are limited to smoke/unit-style evidence
 - Workspace, constraint, stub/TODO, and bug-discovery gates required before marking `[🔍]`.
 
 The output may include a review handoff and checkpoint SHA. It must not perform the review. Use `g-go` / `g-go --swarm` for implement-plus-auto-review, or `g-go-review` / `g-go-review --swarm` for review-only.
+
+## Completion Signal Contract (T1175 — Sandcastle pattern)
+
+`g-go-code` MUST NOT mark a task `[🔍]` (Awaiting Verification) based on "agent feels done" or "end of turn" heuristics. A **completion signal** is a structured, file-grounded artifact set that the next-stage reviewer can verify cold without re-reading the implementer's reasoning.
+
+A valid completion signal consists of **all** of the following — every item is mandatory:
+
+1. **Handoff Report section is filled** (T1097) — the task file contains a `## Handoff Report` section with all five required subsections populated: `Files Changed`, `Commands Run`, `Issues Discovered`, `Left Undone`, `Procedure Compliance`. An empty header is not a signal.
+2. **All AC checkboxes resolved** — every `- [ ]` line under `## Acceptance Criteria` is either checked (`- [x]`) or explicitly carried out and the section ends with no orphan unchecked criteria. Partial implementation is a Blocker (Step 6), not a `[🔍]`.
+3. **DoD Gate passed or explicitly SKIPPED** (T1099/T1168) — Step b3.5 ran and the Status History row records `dod_gate: PASS` or `dod_gate: SKIPPED (<reason>)`. A `dod_gate: FAIL` row means the signal is not yet produced.
+4. **Status History claim + completion row written** — the task file `## Status History` has the b3 row (`| YYYY-MM-DD HH:MM | in-progress | awaiting-verification | <agent> | mode=<tier> — Implementation complete; <summary> |`) appended.
+5. **Post-write lint passed for every modified file** (T919) — Step b1 returned exit 0 for each Write/Edit; no syntax errors are outstanding.
+6. **Implementation Plan was locked** (T879) — `## Implementation Plan` exists on the task file with `Lock Status: LOCKED`, unless `--skip-plan` was passed and the justification is recorded in the session summary. Any `DEVIATION:` notes are present on affected steps (not silently rewritten).
+
+**Signal absence handling**: if any of the six conditions above is not satisfied, the implementer MUST either (a) loop back to the relevant step and complete it, or (b) classify the item as Blocked and log it in `## Deferred Items` § Blockers — never silently mark `[🔍]`.
+
+**Why this matters**: the next agent (`g-go-review` or any reviewer) reads the task file cold and uses these artifacts as the authoritative ground-truth for the work claimed complete. Missing signal pieces are the root cause of the "passed review but actually broken" failure mode.
+
+## Iteration and Timeout Limits (T1175 — Sandcastle pattern)
+
+`g-go-code` accepts dual stop-conditions in `$ARGUMENTS`. **Whichever limit hits first stops the run cleanly**; the limit is not a hard kill — it is a soft "no new claims, finish what's in flight, write the summary" boundary.
+
+| Flag | Default | Override env var | Behavior |
+|------|---------|------------------|----------|
+| `--max-iterations N` | `5` | `GALD3R_MAX_ITERATIONS` | Maximum number of items the implementer will claim and process this session. After N items finish, stop claiming new ones and finalize. Counts both PASS and BLOCKED items. |
+| `--timeout-minutes M` | `30` | `GALD3R_TIMEOUT_MINUTES` | Wall-clock budget in minutes from the moment the work queue is built. When elapsed minutes ≥ M and an item finishes, stop claiming new ones and finalize. Does not interrupt an in-flight item mid-edit. |
+
+**Enforcement rules:**
+
+- Both limits are advisory at the start of each item, not preemptive. The implementer checks them between items, not inside a single item's b/c/d/e/f loop.
+- Either limit hitting triggers the **same** finalization path: the in-flight item completes naturally (or is logged as Blocked if it cannot finish), then the batch status write + checkpoint commit + session summary run as normal.
+- In `--swarm` mode the limits apply to the **coordinator's scheduling decisions**: max-iterations caps the total items partitioned across all buckets; timeout-minutes is a wall-clock fence for the coordinator (bucket agents have no individual timer).
+- Env-var overrides allow per-machine tuning without editing command files (helpful for CI vs interactive). Explicit `$ARGUMENTS` flags override env vars.
+- The session summary MUST include the stop reason: `Stop reason: queue exhausted | max-iterations (N of N) | timeout-minutes (M elapsed) | hard-gate blocker`.
+
+**Why dual limits**: relying on iteration count alone fails when a single complex task burns the entire run budget; relying on timeout alone fails when many trivial items get cut off without a clean stopping point. Dual limits give a predictable upper bound on both attempts and wall-clock.
 
 ## ⚙️ Pure Executor Contract
 
@@ -90,7 +173,7 @@ Also re-run the **Gald3r Housekeeping Commit Gate** with `-Mode post-write -Appl
 
 Immediately before the coordinator merges bucket results into the primary checkout, updates shared `.gald3r` indexes or task/bug files as coordinator-owned writes, touches `CHANGELOG.md`, or creates checkpoint / review-result commits: **re-run** `git status --short` on the **orchestration root and every other repository root in the computed touch set** (steps 1 + 3 + 4). For `--swarm` runs, if unrelated dirty paths appear in **any** of those roots during parallel bucket work, **fail closed** — do not apply those shared writes; keep patches, artifacts, and evidence; report **per-root** blockers using the same blocker family as checkpoint and review-result commits.
 
-## Session-Start: Load Active Goal (Ralph Loop)
+## Session-Start: Load Active Goal (Goal-Locked Loop)
 
 > Fires immediately after safety gates pass, before implementation begins. If no active goal is set, this section is a no-op.
 
@@ -115,11 +198,45 @@ If no `ACTIVE_GOAL.md` exists and no `--with-goal` flag is present, proceed with
 
 **Goal-aligned AC gate**: after each AC-gate iteration (step b2 below), the implementing agent self-checks: "Did this action advance `<description>`?" If not, re-anchor on the goal in the next reasoning step. This is a soft drift-correction — not a hard block. If drift is severe (3+ consecutive AC-gate iterations failing the alignment check), surface a `🎯 Goal drift detected` notice in the session summary and consider invoking `@g-goal status` to verify the lock is current.
 
-See `g-goal` command (parity across all 6 IDE platforms) for the full Ralph loop specification.
+See `g-goal` command (parity across all 6 IDE platforms) for the full goal-locked loop specification.
 
 ---
 
 ## Execution Protocol
+
+### Step 0a — Shell Router (T1144, before any tool call)
+
+Before issuing any shell, hook, or git command in this run, **probe once** and lock the shell route for the session. This complements the always-apply rule `g-rl-00-always` §6 ("Shell Context — OS + Shell Probe") and prevents the bash-vs-PowerShell token-waste loop documented in BUG-031 / T1144.
+
+**Probe (one signal, not a diagnostic loop):**
+
+| Signal | Route |
+|---|---|
+| `$env:OS` contains `Windows`, or `$IsWindows -eq $true`, or harness reports `Shell: PowerShell` | **PowerShell route** — use a `PowerShell` / `Shell` tool when available |
+| `uname -s` returns `Linux` / `Darwin`, `$BASH_VERSION` is set, or harness reports `Shell: Bash` | **bash/zsh route** — use the `Bash` tool |
+
+**Lock and route every subsequent invocation through the chosen interpreter.** Do not mix syntaxes inside a single tool call — the tool, not the snippet, picks the parser. If the harness exposes both `Bash` and `PowerShell` tools on Windows, prefer the PowerShell tool for PowerShell snippets.
+
+Concrete syntax differences to keep in mind (mirrors `g-rl-00-always` §6):
+
+- Arrays: `@(...)` (PS) vs `(...)` / `arr=(a b c)` (bash)
+- Statement separators: `;` sequential (PS, both); `&&` short-circuit (bash always, PS 7+)
+- Env vars: `$env:VAR` (PS) vs `$VAR` / `${VAR}` (bash)
+- Paths: `\` (PS, `/` also accepted on Windows) vs `/` (bash)
+- File-exists test: `Test-Path $p` (PS) vs `[ -f "$p" ]` (bash)
+- Pipeline filters: `Where-Object { ... }` (PS) vs `grep` / `awk` / `xargs` (bash)
+
+**Regression canonical (BUG-031 family)** — the PCAC inbox hook lookup snippet that triggered T1144:
+
+```powershell
+$hook = @( ".cursor\hooks\g-hk-pcac-inbox-check.ps1", ".claude\hooks\g-hk-pcac-inbox-check.ps1" ) | Where-Object { Test-Path $_ } | Select-Object -First 1
+```
+
+This snippet appears literally in the PCAC Inbox Gate section below. It is PowerShell-only — invoking it via `Bash(...)` produces `syntax error near unexpected token '('` (exit 2). That error is a **tool-routing failure**, NOT a real PCAC conflict or hook-missing state. Re-route through PowerShell and the call succeeds; do not enter an error-driven retry loop.
+
+When in doubt on Windows, default to PowerShell for any snippet that uses `@(`, `$env:`, `Where-Object`, `Select-Object`, `Test-Path`, or backslash paths. Linux/macOS hosts use `pwsh` if available, otherwise fall back to bash equivalents.
+
+---
 
 ### 1. Load Context (Before Touching Anything)
 
@@ -146,6 +263,8 @@ Read in this order:
 - **Skip non-expired `[📝]` speccing claims** — log owner/expiry in Skipped section as "Speccing-In-Progress"
 - For stale `[📝]` claims, append a Status History takeover row naming the prior `spec_owner` before proceeding
 - **NOT** `[🚨]` (requires-user-attention) — **skip entirely**, log in Skipped section as "Requires-User-Attention — human review needed"
+- **Skip `[⏸️]` (paused) tasks** — stored in `tasks/paused/`; must be manually unpaused before g-go-code picks them up
+- **Skip `[🚫]` (cancelled) tasks** — stored in `tasks/cancelled/`; terminal state, never eligible for implementation
 - No unmet dependencies, with the rolling-pipeline exception below: a dependency at `[🔍]` counts as **implementation-satisfied** for follow-on coding unless the downstream task declares `requires_verified_dependencies: true`
 - Not `ai_safe: false`
 - Priority: Critical → High → Medium → Low
@@ -249,6 +368,7 @@ Rules:
 - Run implementation commands from the worktree root. Keep the primary checkout for queue coordination and final status writes.
 - Pre-create all queued item worktrees before marking any item `[🔍]`; this prevents legitimate gald3r status writes from making later worktree creation look unsafe.
 - If worktree creation fails, preserve any existing files, record the reason in Deferred Items, and skip the item rather than editing the primary checkout.
+- **Agent liveness heartbeat (T1058)**: at claim time, write `agent_heartbeat: now` and `agent_heartbeat_expires: now + 10 min` to the task YAML. Refresh both fields every 5 minutes during active bucket work. Use the env var `GALD3R_HEARTBEAT_TTL_MINUTES` if set.
 
 ### 4. Work Through Items Sequentially
 
@@ -257,15 +377,37 @@ For each item:
 **a)** Read the task/bug file — understand objective and acceptance criteria
 **b)** If the item is a bare `[ ]` task with no complete spec, run `g-skl-tasks` `CLAIM-FOR-SPEC` → `WRITE-SPEC` → `PROMOTE-SPEC` first; skip non-expired `[📝]` claims. Then create/reuse the coding worktree and implement the solution inside that worktree
 
-**b0) Impact Scan + Code-Graph Context Query (T921 + T874b)** — before writing any file, run the cross-file impact analysis to understand blast radius, and (when enabled) query the pre-built code graph to seed implementer context with ~200 tokens instead of grepping linearly.
+**b-1) Validation Contract Pre-Gate (T1096)** — before claiming any task, verify the `## Acceptance Criteria` section contains **checkbox items** (`- [ ]`). If the AC section is missing or contains only prose (no checkboxes):
 
-**b0.1 Impact Scan (T921, default-on)**
+- **Block** the task claim
+- Write a note: "AC_VALIDATION_FAIL: task {N} — Acceptance Criteria missing or prose-only; requires checkbox format before implementation can begin"
+- Log to work queue as "Skipped - AC_GATE: needs checkbox AC before implement"
+- Move to the next task
+
+This gate ensures g-go-review has a pre-defined, unambiguous contract to check. AC prose = unbounded scope = high re-work risk.
+
+**Fast pass**: If the task has ≥3 checkbox AC items, the gate passes immediately with no extra action.
+
+**b0) Impact Scan + Code-Graph Context Query (T921 + T874b + T1158)** — before writing any file, run the cross-file impact analysis to understand blast radius, and (when enabled) query the pre-built code graph to seed implementer context with ~200 tokens instead of grepping linearly.
+
+**b0.1 Impact Scan (T921 → T1158, default-on)**
+
+Call `graph_impact` on each file in the task touch set via gald3r_muninn MCP. The PowerShell wrapper is the canonical entry point and falls back automatically when the muninn graph is not indexed:
 
 ```powershell
-.\scripts\gitnexus_impact.ps1 -File "{file_to_be_modified}" -Depth 2 -Json
+.\scripts\graph_impact.ps1 -File "{file_to_be_modified}" -Depth 2 -Json
 ```
 
-Review the returned `affected_files` list. If the impact scan reveals > 3 transitively dependent files, add them to the implementation context window before writing. This prevents cross-file breakage ("agent edits one file and breaks another"). Non-blocking: proceed even if the script returns no results or falls back to the ripgrep backend.
+Direct MCP equivalent (when calling tools by name):
+
+```jsonc
+// gald3r_valhalla MCP server (muninn plugin)
+{ "tool": "graph_impact", "arguments": { "file_path": "{file_to_be_modified}" } }
+```
+
+Review the returned `files` list (each entry `{path, relation}` with `relation` ∈ `imports | calls | imports+calls`). If the impact scan reveals > 3 transitively dependent files, add them to the implementation context window before writing. This prevents cross-file breakage ("agent edits one file and breaks another"). Non-blocking: proceed even if the script returns `warning: not_indexed` or falls back to the ripgrep backend.
+
+Migration note (T1158): the prior `scripts/gitnexus_impact.ps1` is deprecated; it now forwards to `graph_impact.ps1` automatically so legacy callers keep working. Update any custom automation to call the new script directly.
 
 **b0.2 Graphify Code-Graph Query (T874b, opt-in)**
 
@@ -273,14 +415,14 @@ Read `.gald3r/config/AGENT_CONFIG.md` → `context_reduction_mode.graphify_b0_en
 
 Backend fallback order (g-skl-graphify §Backends):
 
-1. **gitNexus MCP** (preferred) — `gitnexus.context` / `gitnexus.impact` / `gitnexus.cypher` for symbol-level call/import resolution. Already wired in `.mcp.json` per T842.
-2. **graphify CLI** — when gitNexus is unavailable, run `graphify query --root . --symbol {target}` against the local `.graphify/` index. See g-skl-graphify §SETUP for indexing guidance.
+1. **gald3r_muninn MCP** (preferred, T1158) — `graph_impact` / `graph_callers` / `graph_callees` / `graph_deps` for symbol-level call/import resolution. Auto-loaded into the gald3r_valhalla MCP server; see `.mcp.json` `gald3r_muninn` entry.
+2. **graphify CLI** — when muninn is unavailable, run `graphify query --root . --symbol {target}` against the local `.graphify/` index. See g-skl-graphify §SETUP for indexing guidance.
 3. **tree-sitter + ripgrep fallback** — when neither backend is reachable, fall back to the legacy grep-based context-prep (Step b0.1 + ad-hoc reads). Do NOT halt the run.
 
 Failure modes (never halt the run):
 
-- **Missing backend** — `.mcp.json` has no `gitnexus` entry AND `graphify` CLI not on PATH AND no `.graphify/` index → log "graphify b0 skipped: no backend reachable" and fall through to legacy.
-- **Graph staleness** — index older than the orchestration root's last commit → emit a warning; still use the result (advisory) and append a note recommending `graphify update` or `gitnexus group_sync`.
+- **Missing backend** — gald3r_valhalla MCP server unreachable AND muninn plugin import fails AND `graphify` CLI not on PATH AND no `.graphify/` index → log "graphify b0 skipped: no backend reachable" and fall through to legacy.
+- **Graph staleness** — index older than the orchestration root's last commit (muninn `graph_status` returns `stale: true` when index >24h old) → emit a warning; still use the result (advisory) and append a note recommending re-indexing via the muninn indexer or `graphify update`.
 - **Query timeout** (>5s) — abort the query, log "graphify b0 timeout — fell back to legacy", proceed.
 - **Empty result** — query returned no symbols / no edges → log "graphify b0 empty — fell back to legacy"; proceed with Step b0.1 context.
 
@@ -318,14 +460,100 @@ If the script exits non-zero (`exit 2` = syntax error), **stop and fix the file 
   | YYYY-MM-DD | pending | awaiting-verification | Implementation complete; {1-line summary} |
   ```
   If the task file has no `## Status History` section yet, add it first (backfill row: `| {created_date} | — | pending | Task created (backfill) |`).
+**b3.5) Definition-of-Done Gate — Per-Criterion Model Evaluator (T1099 + T1168)** — after implementation, before marking `[🔍]`, run a per-criterion structured evaluation of the task's `## Acceptance Criteria` checklist using a cheap model tier (Haiku, gemini-flash-lite, etc.). This catches confirmation-bias premature `[🔍]` marks where the implementation agent thinks it shipped AC but missed a checkbox.
+
+**Opt-in policy**: This gate is opt-in per task. Run it when **any** of the following is true:
+
+1. Task YAML frontmatter has `requires_dod_gate: true`
+2. Project `.gald3r/config/AGENT_CONFIG.md` sets `dod_gate_enabled: always`
+3. Task has `requires_verification: true` AND `AGENT_CONFIG.md` sets `dod_gate_enabled: auto` (default)
+
+When `dod_gate_enabled: never` is set project-wide, the gate is suppressed regardless of task-level flags. When task has `requires_dod_gate: false` (explicit), the gate is suppressed even if `dod_gate_enabled: always`.
+
+When the gate does not run, log `dod_gate: SKIPPED (opt-out)` to Status History and proceed to **b4**.
+
+**Per-criterion evaluator prompt** (invoke once per `- [ ] criterion` row using the cheapest available model):
+
+```
+You are evaluating ONE acceptance criterion against an implementation.
+
+Criterion: {criterion text}
+
+Files modified this task:
+{list of file paths from b4 Handoff Report — files changed/created/deleted}
+
+Brief implementation summary:
+{1-3 sentence summary of what was done}
+
+Question: Is this criterion satisfied by the current code?
+Respond in this exact format:
+VERDICT: PASS | FAIL | UNSURE
+EVIDENCE: <file:line> or <file (no line)> or "no direct evidence found"
+REASON: <one-sentence justification>
+```
+
+**Aggregation logic**:
+
+| Outcome | Action |
+|---------|--------|
+| All criteria `PASS` | Proceed to **b4 Handoff Report** → `[🔍]` |
+| Any criterion `FAIL` | **BLOCK**. Do not mark `[🔍]`. Return to **(b)** for one targeted fix pass, then re-run the gate (max 1 retry). After 1 failed retry, log Status History `dod_gate: FAIL` and either (i) keep the task at `[🔄]` with a Blocker note for the next session, or (ii) if `--swarm`, return the FAIL verdict to the coordinator as part of the bucket handoff. |
+| Any criterion `UNSURE` (none `FAIL`) | Surface to coordinator (single-agent: surface to user; `--swarm`: include in bucket handoff). Coordinator/user decides: (a) treat as PASS and mark `[🔍]`, (b) treat as FAIL and loop, or (c) escalate to `g-go-review` for human-style verification. Do NOT silently auto-pass UNSURE. |
+| Cheap model unavailable / network error | Log `dod_gate: SKIPPED (model unavailable)` and fall through to legacy YES/NO check (T1099 behavior). Never halt the run on infrastructure failure. |
+
+**Status History row** (always append after gate, even on SKIP):
+
+```
+| {timestamp} | in-progress | {next_status} | {agent} | dod_gate: {PASS|FAIL|UNSURE|SKIPPED} — {summary_line} |
+```
+
+Where `{summary_line}` is one of:
+
+- `all N criteria PASS`
+- `N PASS / M FAIL / K UNSURE — FAIL: {first_failed_criterion_short_label}`
+- `N PASS / K UNSURE — needs coordinator decision`
+- `SKIPPED ({opt-out|model-unavailable|opt-out-task-flag})`
+
+**Per-criterion detail** (optional, append below Status History row when at least one FAIL or UNSURE exists, for audit and `g-go-review` cross-check):
+
+```
+### DoD Gate Detail — {timestamp}
+- AC1 `{first 60 chars of criterion}`: PASS — commands/g-go-code.md:416 — "criterion text matches step b3.5"
+- AC2 `{...}`: FAIL — no direct evidence found — "criterion not visible in modified files"
+- AC3 `{...}`: UNSURE — skills/g-skl-tasks/SKILL.md:197 — "field present but behavior not exercised"
+```
+
+**Cost guard**: The gate runs **once** per task per `[🔍]` attempt (plus 1 retry after FAIL). Per-criterion prompts are short and target a Haiku-tier model — typical cost is well under the savings from preventing one failed `g-go-review` cycle.
+**b4) Fill Handoff Report** (REQUIRED before `[🔍]`) — fill in the `## Handoff Report` section of the task file:
+  - **Files Changed**: list every file created, modified, or deleted (one path per line)
+  - **Commands Run**: key commands with exit codes (e.g. `uv run pytest` → exit 0)
+  - **Issues Discovered**: pre-existing bugs found, blockers hit, surprises
+  - **Left Undone**: stubbed items, deferred scope, `TODO[TASK-X→TASK-Y]` references
+  - **Procedure Compliance**: Yes / Partial / No — note any gate deviations
+  If the task file has no `## Handoff Report` section, create it above `## Agent Notes`.
 **c)** Validate — lint, test, check files exist
 **d)** Record decisions — if you chose approach A over B, append to `.gald3r/DECISIONS.md`
 **e)** Update subsystem Activity Log — for each subsystem in the task's `subsystems:` field, append to `.gald3r/subsystems/{name}.md` Activity Log: `| {date} | TASK | {id} | {title} | — |`. Create a stub spec if the file doesn't exist.
-**f)** Queue status update → mark `[🔍]` (NOT `[✅]`) in both task file and TASKS.md during the final batch write
+**f)** Queue status update — **C-026 enforced — two different writers, never the same agent**:
+
+| Who | What to write | What NOT to write |
+|-----|--------------|------------------|
+| **Bucket agent** (in a worktree) | Individual task file only — update `status:` frontmatter and `## Status History` row | **MUST NOT touch `.gald3r/TASKS.md`** — return a coordinator proposal instead |
+| **Coordinator** (primary checkout) | `.gald3r/TASKS.md` batch update after all buckets reconcile | Never edits task files directly when reconciling bucket proposals |
+
+**Bucket proposal format** (include in the bucket handoff):
+```
+TASKS.md row proposal: | [🔍] | [T{id}](tasks/open/task{id}_*.md) | {title} | {subsystem} | {date} |
+```
+
+In single-agent (non-swarm) mode from the **primary checkout** (not a worktree), both writes are allowed — write the task file first, then immediately batch-update TASKS.md in the same final write pass (step 8). Verify you are NOT in a worktree with `git worktree list` — if the command returns more than one entry and your cwd is not the primary path, you are a bucket agent.
+
 **g)** Move to next item
 
 > **IMPORTANT**: Mark every completed item `[🔍]`, never `[✅]`.
 > `[✅]` requires a separate agent session running `@g-go-review`.
+>
+> **C-026**: Bucket worktree agents write task files only. TASKS.md is coordinator-only. The pre-commit hook will block a worktree commit that stages TASKS.md.
 
 ### 4a. Mid-Task Checkpoint (Mandatory, Every N Major Operations)
 
@@ -483,6 +711,11 @@ After the final shared-write pass, create the checkpoint commit before review. I
 ```markdown
 ## Implementation Session Summary
 
+> **Follow-Up Task Filing Gate**: Before writing this summary, call `g-skl-tasks CREATE TASK` for
+> every follow-up item surfaced during this run (deferred sub-features, out-of-scope gaps, stub
+> annotations). Reference actual task IDs (e.g. `T1110`) — NEVER slug-style names. If task creation
+> fails, log it as a BLOCKER. Named-but-not-filed follow-ups are a policy violation.
+
 ### Moved to [🔍] (Awaiting Verification)
 - [🔍] Task #X: {title}
 - [🔍] Bug BUG-00N: {title}
@@ -492,6 +725,10 @@ After the final shared-write pass, create the checkpoint commit before review. I
 
 ### Deferred Questions & Blockers
 {collected items from step 5}
+
+### Follow-Up Tasks Filed
+- T{id}: {title} — {why surfaced during this run}
+(none surfaced — or list all filed task IDs with titles)
 
 ### Decisions Made This Session
 {append these to .gald3r/DECISIONS.md}
@@ -628,6 +865,10 @@ After all sub-agents complete:
 ### Skipped / Blocked
 {merged list from all agents}
 
+### Follow-Up Tasks Filed
+- T{id}: {title} — {why surfaced}
+(none surfaced — or list all filed task IDs with titles. Named-but-not-filed follow-ups are a policy violation.)
+
 ### Handoff
 {total} task(s) / {total} bug(s) moved to [🔍].
 Implementation checkpoint: {branch}@{commit_sha} (default review-swarm source)
@@ -648,6 +889,24 @@ Rolling waves completed: {count}; checkpoint-dependent downstream items: {ids}; 
 @g-go-code --swarm
 @g-go-code --swarm tasks 7, 9, 10, 11, 12
 @g-go-code --swarm bugs-only
+@g-go-code --mode fast tasks 14, 15
+@g-go-code --mode standard tasks 14, 15
+@g-go-code --mode cheap bugs BUG-001
+@g-go-code --swarm --mode fast
+@g-go-code --max-iterations 3 tasks 14, 15, 16, 17, 18
+@g-go-code --timeout-minutes 15 bugs-only
+@g-go-code --max-iterations 10 --timeout-minutes 60 --swarm
+@g-go-code --max-iterations 1 tasks 14
 ```
+
+`--mode fast` and `--mode cheap` are equivalent (both → haiku-class). `--mode standard` is
+the explicit form of the default (sonnet-class). Omit the flag to inherit the host IDE's
+current model.
+
+`--max-iterations N` caps the total item count for the session (default `5`, env override
+`GALD3R_MAX_ITERATIONS`). `--timeout-minutes M` caps the wall-clock budget (default `30`,
+env override `GALD3R_TIMEOUT_MINUTES`). Whichever hits first stops new claims cleanly; the
+in-flight item finishes and the session writes its summary. See "Iteration and Timeout
+Limits" above for full semantics.
 
 Let's implement.

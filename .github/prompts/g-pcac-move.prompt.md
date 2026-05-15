@@ -45,7 +45,7 @@ Search and update `SUBSYSTEMS.md`, `tasks/*.md`, `AGENTS.md`.
 
 **Migrate a subsystem:**
 ```
-@g-pcac-move gald3r_template_full/.cursor/skills/g-skl-websocket-sync → gald3r_mcp
+@g-pcac-move G:/gald3r_ecosystem/gald3r_template_full/.cursor/skills/g-skl-websocket-sync → gald3r_mcp
 ```
 
 **Promote a skill to canonical template:**

@@ -34,3 +34,30 @@ alwaysApply: true
 4. When working with Python Project, please use the UV for virtual environment management
 
 5. Your training data is 1-3 years old. For time-sensitive queries (versions, pricing, APIs, best practices), **research before answering** using WebSearch or WebFetch. Use today's date from system context, NOT training cutoff.
+
+6. **Shell Context (Session Start) — OS + Shell Probe**. Before issuing ANY shell command, determine the host OS and target shell. This is a **session-start, one-shot probe** (a single env-var read or one `uname` call — not a multi-step diagnostic) intended to eliminate the bash-vs-PowerShell token-waste loop documented in BUG-031 / T1144.
+
+   **Probe (pick the cheapest signal already available):**
+   * `$env:OS` contains `"Windows"` **or** `$IsWindows -eq $true` (PowerShell 7+) → **PowerShell route**
+   * `uname -s` returns `Linux` / `Darwin` **or** `$BASH_VERSION` is set → **bash/zsh route**
+   * If the harness already tells you (e.g. system context says `Shell: PowerShell` or `Shell: Bash`), trust that — do not re-probe.
+
+   **Never mix syntax inside a single tool call.** The interpreter is selected by the tool, not the snippet — `Bash(...)` will parse PowerShell syntax as bash and error. Concrete differences:
+
+   | Concept | PowerShell | Bash / zsh |
+   |---|---|---|
+   | Array literal | `@("a","b","c")` | `("a" "b" "c")` or `arr=(a b c)` |
+   | Statement separator | `;` (sequential); `&&` requires PS 7+ | `&&` (short-circuit), `;` (sequential) |
+   | Env var read | `$env:VAR` | `$VAR` / `${VAR}` |
+   | Path separator | `\` (forward `/` also accepted on Windows) | `/` |
+   | File-exists test | `Test-Path $p` | `[ -f "$p" ]` / `[ -e "$p" ]` |
+   | Pipeline filter | `Where-Object { ... }` | `grep` / `awk` / `xargs` |
+   | Subshell / cmd substitution | `$(...)` (expression eval) | `$(...)` (command output) |
+
+   **Default routing on Cursor/Claude Code on Windows**: assume PowerShell unless the terminal explicitly shows a bash/zsh prompt. When the harness exposes both a `Bash` and a `PowerShell` tool, route by **host OS**, not by tool-name preference.
+
+   **Regression canonical example** — this is the exact construct that triggered T1144 (a PowerShell `@(...)` array piped through `Where-Object` to find a hook file, executed inside a `Bash` tool call):
+   ```powershell
+   $hook = @( ".cursor\hooks\g-hk-pcac-inbox-check.ps1", ".claude\hooks\g-hk-pcac-inbox-check.ps1" ) | Where-Object { Test-Path $_ } | Select-Object -First 1
+   ```
+   Bash rejects `@(` with `syntax error near unexpected token '('`. That error is a **tool-routing failure**, not a real PCAC conflict or hook-missing condition — re-route the same snippet through PowerShell and it succeeds. Do not enter an error-driven retry loop; switch tools.
