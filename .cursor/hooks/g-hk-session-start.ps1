@@ -2,6 +2,14 @@
 # Triggered when a new composer conversation is created.
 # Injects gald3r context and handles first-time user setup.
 
+# ── Ensure platform dirs are populated from canonical root ────────────────────
+try {
+    $setupScript = Join-Path (Split-Path -Parent $PSScriptRoot) "setup_dev_env.ps1"
+    if (Test-Path $setupScript) {
+        & $setupScript -Platform cursor -Quiet
+    }
+} catch {}
+
 $inputJson = $input | Out-String
 
 # ── Read .identity file ───────────────────────────────────────────────────────

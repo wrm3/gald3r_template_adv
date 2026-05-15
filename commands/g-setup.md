@@ -8,6 +8,21 @@ Activates the **g-skl-setup** skill which handles the full initialization workfl
 > **This is the slim gald3r version.** Experiments, linking, vault, config, and phases
 > are full-version features only and must not be created here.
 
+
+---
+
+## Step 0: Populate Platform Dirs
+
+Ensure the calling platform has its skill/agent/command dirs populated from the canonical root.
+Run this before any other setup steps so agents have access to all skills and commands:
+
+```powershell
+powershell -NoProfile -ExecutionPolicy Bypass -File setup_dev_env.ps1 -Platform auto
+```
+
+This auto-detects the current platform (cursor/claude/agent/codex/opencode/copilot) and copies
+only the relevant dirs. Use `-Platform all` to populate every platform at once.
+
 ---
 
 ## Step 1: Check for Existing Installation
