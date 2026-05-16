@@ -4,7 +4,7 @@
 
 # ── Ensure platform dirs are populated from canonical root ────────────────────
 try {
-    $setupScript = Join-Path (Split-Path -Parent $PSScriptRoot) "setup_dev_env.ps1"
+    $setupScript = Join-Path (Split-Path -Parent (Split-Path -Parent $PSScriptRoot)) "setup_dev_env.ps1"
     if (Test-Path $setupScript) {
         & $setupScript -Platform claude -Quiet
     }
