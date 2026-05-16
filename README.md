@@ -9,7 +9,7 @@
 
 <p align="center">
   <a href="LICENSE"><img src="https://img.shields.io/badge/License-FSL--1.1--Apache-purple.svg" alt="License: FSL-1.1-Apache"></a>
-  <a href="CHANGELOG.md"><img src="https://img.shields.io/badge/version-1.4-green.svg" alt="Version"></a>
+  <a href="CHANGELOG.md"><img src="https://img.shields.io/badge/version-1.5-green.svg" alt="Version"></a>
   <a href="https://www.python.org"><img src="https://img.shields.io/badge/python-3.10+-blue.svg" alt="Python 3.10+"></a>
   <a href="https://github.com/wrm3/gald3r"><img src="https://img.shields.io/github/stars/wrm3/gald3r?style=social" alt="GitHub stars"></a>
 </p>
@@ -235,32 +235,52 @@ your-project/
 
 ## Quick Start
 
-```bash
-# Clone the gald3r template
-git clone https://github.com/wrm3/gald3r.git
+### New Project (Interactive Installer)
 
-# Copy framework into your project
-cd your-project
-cp -r ../gald3r/.cursor    .cursor
-cp -r ../gald3r/.claude    .claude
-cp -r ../gald3r/.agent     .agent
-cp -r ../gald3r/.codex     .codex
-cp -r ../gald3r/.opencode  .opencode
-cp -r ../gald3r/.gald3r     .gald3r
-cp ../gald3r/AGENTS.md     AGENTS.md
-cp ../gald3r/CLAUDE.md     CLAUDE.md
-cp ../gald3r/GEMINI.md     GEMINI.md
+```powershell
+# Clone the template that matches your tier (slim / full / adv)
+git clone https://github.com/wrm3/gald3r_template_adv.git
+
+# Run the interactive installer from inside the cloned folder
+cd gald3r_template_adv\gald3r_template
+.\setup_gald3r_project.ps1
 ```
 
-On Windows: use `robocopy` or File Explorer. Each project gets its own `.gald3r/` — never share task data between projects.
+The installer asks three questions:
+1. **Where is your project?** — path to your existing or new project folder
+2. **New or existing project?** — auto-detected and confirmed
+3. **Which platforms?** — pick from the list (Cursor, Claude Code, Gemini, Codex, OpenCode, Copilot, and 15 more)
 
-Open your project in Cursor (or any supported IDE) and run:
+The installer then:
+- Copies `.gald3r_sys/` (the versioned gald3r framework) into your project
+- Initializes `.gald3r/` with your project identity (new projects only)
+- Deploys the platform directories you selected (`.cursor/`, `.claude/`, etc.)
+- Copies itself to your project root so future sessions can regenerate platform dirs automatically
+
+> **Important:** Platform dirs (`.cursor/`, `.claude/`, etc.) are **generated outputs** — they are not committed to your git repo. The gald3r framework lives in `.gald3r_sys/`, which IS committed. Run `setup_gald3r_project.ps1` (or let a session-start hook do it) to regenerate them at any time.
+
+**Start a new IDE session** after installation so the agents, skills, and rules load into context.
+
+### Existing Project (Upgrade from v1.4 or earlier)
+
+```powershell
+# Run the installer against your existing project
+cd gald3r_template_adv\gald3r_template
+.\setup_gald3r_project.ps1
+# Detects existing gald3r version and upgrades intelligently.
+# Your .gald3r/ task data, bugs, and plans are preserved.
+# g-prefixed framework files are updated; your files are untouched.
+```
+
+### After Installation
+
+Open your project in your IDE and run:
 
 ```
 @g-setup
 ```
 
-That creates your `.gald3r/.identity`, seeds the structural files, and registers the project. You're ready.
+That creates `.gald3r/.identity`, seeds structural files, and registers the project. You're ready.
 
 ---
 
