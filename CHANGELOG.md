@@ -1,4 +1,5 @@
 # Changelog
+<!-- APPEND ONLY: This file must only grow. Never use Write/overwrite on this file. Use StrReplace for targeted edits or PowerShell for structured operations. Reading with a line limit then writing back = silent truncation. -->
 
 All notable changes to gald3r are documented here.
 Format follows [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
@@ -7,6 +8,57 @@ gald3r uses [Semantic Versioning](https://semver.org/).
 ---
 
 ## [Unreleased]
+
+### Added
+
+- **Clean-room rewrite pipeline** (`g-skl-crr`, `@g-crr`): when external analysis output needs to be adapted to your codebase without importing external code directly, the clean-room pipeline guides the agent through a structured ideation-and-rewrite process. Output is original work derived from concepts, not copied code.
+
+- **Semantic versioning and release management** (`g-skl-ship`, `@g-ship`): ship a versioned release from your `[Unreleased]` CHANGELOG entries. `@g-ship patch`, `@g-ship minor`, and `@g-ship major` promote entries, bump `VERSION`, update the README badge, create a git tag, and optionally publish a GitHub release. CHANGELOG entries are now written automatically at task completion and bug closure.
+
+- **Incremental CHANGELOG maintenance**: task completion (`g-skl-tasks`) and bug closure (`g-skl-bugs`) now prompt for or automatically write `[Unreleased]` CHANGELOG entries at the point of completion. Release notes build continuously during development, not in a rush at release time.
+
+- **Agent test skill** (`g-skl-test`, `@g-test`): create and maintain multi-level test plans (fast L1, comprehensive L2, regression L3). Enforces test plan discipline at code review and release gates.
+
+- **Dependency graph skill** (`g-skl-dependency-graph`, `@g-dependency-graph`): generate and maintain `.gald3r/DEPENDENCY_GRAPH.md` from task dependency chains. Auto-updates when tasks are created or dependency fields change.
+
+- **Subsystem graph skill** (`g-skl-subsystem-graph`, `@g-subsystem-graph`): generate `.gald3r/SUBSYSTEM_GRAPH.md` from subsystem spec dependency declarations.
+
+- **PRD management** (`g-skl-prds`, `@g-prd-add`, `@g-prd-upd`, `@g-prd-del`, `@g-prd-revise`): formal product requirement document lifecycle alongside features. PRDs are governance/audit artifacts — `released` and `superseded` PRDs are frozen; only `@g-prd-revise` can change them.
+
+- **PCAC send-to skill** (`g-skl-pcac-send-to`, `@g-pcac-send-to`): send files, features, specs, or code from the current project to any related project in the topology with INBOX notification and vault provenance logging.
+
+- **PCAC notify skill** (`g-skl-pcac-notify`, `@g-pcac-notify`): send lightweight `[INFO]` notifications to one or more project inboxes — no task created, no approval needed.
+
+- **PCAC order and cascade** (`g-skl-pcac-order`, `@g-pcac-order`): push tasks to child projects with configurable cascade depth (1–3). Creates tasks in child `.gald3r/` folders with INBOX notification.
+
+- **SWOT review skill** (`g-skl-swot-review`, `@g-swot-review`): automated project-phase SWOT analysis covering goal alignment, architectural compliance, code quality, and technical debt. Run weekly via heartbeat or on-demand.
+
+- **Medkit skill** (`g-skl-medkit`, `@g-medkit`): surgical repair for a specific `.gald3r/` file without running a full medic pass.
+
+- **Constraint management** (`g-skl-constraints`, `@g-constraint-add`, `@g-constraint-del`, `@g-constraint-upd`, `@g-constraint-check`): formal architectural constraint lifecycle with expiry evaluation and enforcement definitions.
+
+- **OpenClaw platform support** (`g-skl-platform-opencode`): extended platform skill coverage.
+
+- **Skill execution capture hook** (`g-hk-session-start`): opt-in hook that captures which skills were invoked during a session and stages brief summaries for continual learning. Zero-touch when not opted in.
+
+- **Git push [Unreleased] gate**: `@g-git-push` now shows an advisory prompt when `CHANGELOG.md` has non-empty `[Unreleased]` content, letting you ship a versioned release or continue pushing as-is.
+
+### Changed
+
+- **`g-skl-tasks` COMPLETE gate strengthened**: the docs check (step 2b) now explicitly walks you through writing a CHANGELOG entry in the correct format with the correct subsection (`### Added`, `### Changed`, `### Fixed`, `### Removed`). No more vague "append entry" instruction.
+
+- **`g-skl-bugs` FIX gate strengthened**: bug closure now always writes a `### Fixed` entry to `CHANGELOG.md [Unreleased]`, with clean user-facing language and no internal BUG-NNN IDs in the entry.
+
+- **`@g-git-push` pre-push gate**: now checks for non-empty `[Unreleased]` CHANGELOG content and offers an advisory versioning prompt. Non-blocking — continue or ship.
+
+- **Workspace-Control command aliases**: `g-wrkspc-*` is the short primary family. `g-workspace-*` remains supported as a compatibility alias. Lifecycle commands are dry-run by default.
+
+- **Archive commands** (`@g-task-archive`, `@g-bug-archive`): terminal task and bug history moves to `.gald3r/archive/` in count-bucket format. `TASKS.md` and `BUGS.md` stay as active indexes.
+
+### Fixed
+
+- Session-start hook path resolution corrected for all 5+ platform hooks.
+- `@g-go-go` autopilot no longer stops early on complex tasks; all technically runnable tasks are attempted before giving up.
 
 ---
 
@@ -28,7 +80,7 @@ gald3r uses [Semantic Versioning](https://semver.org/).
 
 - **External analysis safety gate** (`@g-res-apply`): before creating implementation tasks from any externally analyzed codebase, gald3r now compares the proposed approach against your existing implementation and your pending work queue. Features that would replace something you already have are classified as `replacement`-type and require explicit confirmation before any tasks are created.
 
-- **Pre-implementation verification for analyzed features** (`@g-go`, `@g-go-code`): when the AI agent picks up a task sourced from external analysis, it pauses before coding to review relevant subsystem specs and scan the pending task queue for overlap. Replacement-class features block until you confirm the approach is genuinely superior (`harvest_approved: true` in task frontmatter, or `--override` for automated pipelines).
+- **Pre-implementation verification for analyzed features** (`@g-go`, `@g-go-code`): when the AI agent picks up a task sourced from external analysis, it pauses before coding to review relevant subsystem specs and scan the pending task queue for overlap. Replacement-class features block until you confirm the approach is genuinely superior (`recon_approved: true` in task frontmatter, or `--override` for automated pipelines).
 
 ### Fixed
 
@@ -36,14 +88,6 @@ gald3r uses [Semantic Versioning](https://semver.org/).
 
 ### Changed
 
-- **License changed from MIT to Fair Source License 1.1 with Apache 2.0 future grant (FSL-1.1-Apache).**
-  - gald3r remains source-available and free to use, modify, and redistribute for any purpose except a Competing Use (offering gald3r itself as a commercial product or service that substitutes for, or substantially duplicates, gald3r).
-  - Individual, internal, and commercial downstream use (using gald3r to build your own products and services) is fully permitted.
-  - Plugin and skill pack authors retain full rights to their own work under any license.
-  - Each version automatically converts to Apache 2.0 on its second anniversary.
-  - See LICENSE for the full text. README.md has a plain-language summary.
-- README: License badge updated from `License-MIT` to `License-FSL-1.1-Apache`.
-- Repository history was reset as part of the license transition. Previous MIT-licensed history is available in the pre-reset backup branch on the maintainer's local clone.
 - **Installer renamed**: `setup_dev_env.ps1` is superseded by `setup_gald3r_project.ps1`. The new script supports new project init, existing project updates, and session-mode platform regeneration in one unified entry point.
 
 ### Removed
@@ -57,8 +101,8 @@ gald3r uses [Semantic Versioning](https://semver.org/).
 ### Added
 
 - **GitHub Copilot support** (`.copilot/`): 6th IDE added to the parity set. Full command surface (89 commands) deployed to `.copilot/commands/`. gald3r now supports Cursor, Claude Code, Gemini, Codex, OpenCode, and GitHub Copilot.
-- **Recon suite** (`g-skl-recon-repo`, `g-skl-recon-url`, `g-skl-recon-docs`, `g-skl-recon-yt`, `g-skl-recon-file`): unified research/reconnaissance skill family. Replaces the separate `g-skl-reverse-spec`, `g-skl-ingest-docs`, `g-skl-ingest-url`, `g-skl-ingest-youtube`, and `g-skl-harvest` skills with a consistent `recon-*` namespace. Each produces a structured recon report for human review before any writes occur.
-- **Research review/apply suite** (`g-skl-res-review`, `g-skl-res-deep`, `g-skl-res-apply`): three-step workflow — review a recon report, deep-dive on specific findings, then apply approved findings into `.gald3r/features/` staging. Replaces `g-skl-harvest-intake`.
+- **Recon suite** (`g-skl-recon-repo`, `g-skl-recon-url`, `g-skl-recon-docs`, `g-skl-recon-yt`, `g-skl-recon-file`): unified research/reconnaissance skill family. Consolidates the prior external analysis and per-platform ingestion skills into a consistent `recon-*` namespace. Each skill produces a structured recon report for human review before any writes occur.
+- **Research review/apply suite** (`g-skl-res-review`, `g-skl-res-deep`, `g-skl-res-apply`): three-step workflow — review a recon report, deep-dive on specific findings, then apply approved findings into `.gald3r/features/` staging. Supersedes the prior single-step external analysis apply workflow.
 - **Release management skill** (`g-skl-release`, `@g-release-new`, `@g-release-assign`, `@g-release-status`, `@g-release-accelerate`, `@g-release-publish`): full release lifecycle from planning to publishing. Manages `.gald3r/releases/` and `.gald3r/RELEASES.md`.
 - **Platform skills** (`g-skl-platform-cursor`, `g-skl-platform-claude`, `g-skl-platform-gemini`, `g-skl-platform-codex`, `g-skl-platform-opencode`, `g-skl-platform-copilot`): per-IDE platform reference skills.
 - **Medic skill** (`g-skl-medic`, `@g-medic`): targeted surgical repair for a specific `.gald3r/` file or subsystem.
@@ -74,21 +118,19 @@ gald3r uses [Semantic Versioning](https://semver.org/).
 
 ### Changed
 
-- `g-skl-reverse-spec` → `g-skl-recon-repo`: renamed and expanded. The recon namespace (`recon-*`) supersedes the ad-hoc harvest/ingest/reverse-spec naming.
-- `g-skl-harvest-intake` → `g-skl-res-apply`: part of the three-step res-* workflow (res-review → res-deep → res-apply).
+- External analysis and ingestion skills migrated to `recon-*` namespace (`g-skl-recon-repo`, `g-skl-recon-docs`, `g-skl-recon-url`, `g-skl-recon-yt`, `g-skl-recon-file`). Prior per-platform ingestion skills unified under consistent naming.
+- External analysis apply skill migrated to `res-*` workflow (`g-skl-res-review` → `g-skl-res-deep` → `g-skl-res-apply`). Three discrete stages replace the former single-step apply.
 - `g-skl-ingest-docs` → `g-skl-recon-docs`: unified into recon namespace.
 - `g-skl-ingest-url` → `g-skl-recon-url`: unified into recon namespace.
 - `g-skl-ingest-youtube` → `g-skl-recon-yt`: unified into recon namespace.
-- `g-skl-harvest` → subsumed by `g-skl-recon-repo` + `g-skl-res-review`.
 - README: IDE parity updated from 5 → 6 IDEs (12 parity targets). Skills 49 → 58, Commands 78 → 89.
 - `g-skl-medkit` version migration updated to include 1.2 → 1.4 path.
 
 ### Removed
 
-- `g-skl-harvest`, `g-skl-harvest-intake` skill directories (superseded by recon-* / res-* suites)
-- `g-skl-ingest-docs`, `g-skl-ingest-url`, `g-skl-ingest-youtube` skill directories (superseded by recon-*)
-- `g-skl-reverse-spec` skill directory (superseded by `g-skl-recon-repo`)
-- Corresponding commands: `@g-harvest`, `@g-harvest-intake`, `@g-ingest-docs`, `@g-ingest-url`, `@g-ingest-youtube`, `@g-reverse-spec`
+- Prior external analysis skill directories (superseded by `g-skl-recon-repo` + `g-skl-res-review` / `g-skl-res-deep` / `g-skl-res-apply`)
+- `g-skl-ingest-docs`, `g-skl-ingest-url`, `g-skl-ingest-youtube` skill directories (superseded by `recon-*` family)
+- Corresponding legacy ingestion and analysis commands (superseded by `@g-recon-*` and `@g-res-*` families)
 
 ---
 
@@ -113,8 +155,8 @@ gald3r uses [Semantic Versioning](https://semver.org/).
 ### Added
 
 - **Feature pipeline** (`g-skl-features`, `FEATURES.md`, `.gald3r/features/`): structured staging layer between idea capture and task creation. Features move through `staging → specced → committed → shipped`. Only reach the TASKS.md backlog when explicitly promoted via `@g-feat-promote`. Prevents backlog pollution and keeps implementation intent explicit.
-- **Reverse-spec skill** (`g-skl-reverse-spec`, `@g-reverse-spec`): deep 5-pass analysis of any external repository. Produces a structured harvest report in `research/harvests/{slug}/` with skeleton, module map, feature scan, deep dives, and synthesis passes. Human reviews and marks features `[✓] approved` before APPLY writes to `.gald3r/features/`.
-- **Harvest intake skill** (`g-skl-harvest-intake`, `@g-harvest-intake`): processes approved harvest output into `.gald3r/features/` staging entries. Deduplicates against existing staging features.
+- **Deep recon skill** (`g-skl-recon-repo`, `@g-recon-repo`): deep 5-pass analysis of any external repository. Produces a structured recon report in `research/recon/{slug}/` with skeleton, module map, feature scan, deep dives, and synthesis passes. Human reviews and marks features `[✓] approved` before APPLY writes to `.gald3r/features/`.
+- **Analysis apply skill** (`g-skl-res-apply`, `@g-res-apply`): processes approved recon output into `.gald3r/features/` staging entries. Deduplicates against existing staging features.
 - **Subsystem graph skill** (`g-skl-subsystem-graph`, `@g-subsystem-graph`): generates a visual Mermaid dependency graph of all registered subsystems with dependency annotations.
 - **IDE CLI skills** (`g-skl-cli-cursor`, `g-skl-cli-claude`, `g-skl-cli-gemini`, `g-skl-cli-opencode`): dedicated reference skills for headless and terminal-first operation of each supported IDE.
 - **Granular task commands** (`@g-task-add`, `@g-task-upd`, `@g-task-del`): fine-grained task operations to supplement the existing `@g-task-new` and `@g-task-update` commands.
@@ -129,7 +171,7 @@ gald3r uses [Semantic Versioning](https://semver.org/).
 - `g-go-verify` renamed to `@g-go-review` — clearer intent (this is the review/verification phase, not a QA pass). Old command name removed from all IDE directories.
 - `g-skl-cursor-cli`, `g-skl-claude-cli`, `g-skl-gemini-cli`, `g-skl-opencode-cli` renamed to `g-skl-cli-cursor`, `g-skl-cli-claude`, `g-skl-cli-gemini`, `g-skl-cli-opencode` — consistent `g-skl-cli-*` namespace pattern.
 - `g-skl-plan` updated: `features/` replaces `prds/` as the primary deliverable directory.
-- `g-skl-harvest` updated: `APPLY` operation now calls `g-skl-features COLLECT` to dedup against existing staging features instead of creating tasks directly.
+- External analysis apply skill updated: `APPLY` operation now calls `g-skl-features COLLECT` to dedup against existing staging features instead of creating tasks directly.
 - `g-skl-medkit` updated: detects projects with `prds/` folder and no `features/` folder — offers migration path to 1.2.0 feature pipeline.
 - README: updated component counts (Skills: 39 → 47, Commands: 52 → 76, Skill Packs: 6 → 7), added Feature Pipeline section.
 
@@ -201,7 +243,7 @@ gald3r uses [Semantic Versioning](https://semver.org/).
 - **Git commit skill** (`g-skl-git-commit`): conventional commit format with task references.
 - **Project planning** (`g-skl-plan`, `g-skl-project`): PLAN.md (milestones and deliverables), PROJECT.md (mission, vision, goals), PRD files, and CONSTRAINTS.md.
 - **Code review** (`g-skl-code-review`): structured review covering security, performance, maintainability, and architectural alignment.
-- **Harvest skill** (`g-skl-harvest`): analyze external repositories for adoptable patterns and improvements.
+- **External analysis skill** (`g-skl-res-review`): analyze external repositories for adoptable patterns and improvements.
 
 ---
 
