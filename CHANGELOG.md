@@ -10,6 +10,15 @@ gald3r uses [Semantic Versioning](https://semver.org/).
 ## [Unreleased]
 
 ### Added
+### Changed
+### Fixed
+### Removed
+
+---
+
+## [1.5.1] - 2026-05-18 (README sync, personality packs, new commands)
+
+### Added
 
 - **Clean-room rewrite pipeline** (`g-skl-crr`, `@g-crr`): when external analysis output needs to be adapted to your codebase without importing external code directly, the clean-room pipeline guides the agent through a structured ideation-and-rewrite process. Output is original work derived from concepts, not copied code.
 
