@@ -109,9 +109,9 @@ graphify query --subclasses OutputTransformer
 ### Using gitNexus MCP (if T871 wired):
 ```
 # Via MCP tool calls in agent context:
-gitnexus_query_callers(symbol="OutputPipeline", repo="gald3r_valhalla")
-gitnexus_blast_radius(file="gald3r_mcp/output_pipeline.py")
-gitnexus_find_definition(symbol="memory_capture_session")
+graph_callers(symbol="OutputPipeline", repo="gald3r_valhalla")
+graph_impact(file="gald3r_mcp/output_pipeline.py")
+graph_search(symbol="memory_capture_session")
 ```
 
 ## CONTEXT-PREP Integration (g-go-code Step b0)

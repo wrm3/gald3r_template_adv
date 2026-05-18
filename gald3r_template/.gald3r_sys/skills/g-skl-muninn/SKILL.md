@@ -10,7 +10,6 @@ version: "1.0"
 platforms: [cursor, claude, gemini, codex, opencode]
 mcp_server: gald3r_valhalla
 mcp_entry: ".mcp.json → gald3r_muninn entry (auto-loaded into gald3r_valhalla)"
-replaces: g-skl-gitnexus
 related_tasks: [T1147, T1153, T1154, T1155, T1156, T1157, T1158, T921]
 ---
 
@@ -20,7 +19,7 @@ related_tasks: [T1147, T1153, T1154, T1155, T1156, T1157, T1158, T921]
 
 `gald3r_muninn` is the clean-room rewrite of the codebase-graph capability that
 formerly used GitNexus. It indexes Python and TypeScript source into a local
-SQLite graph store (`~/.gald3r/muninn.db`) and exposes six MCP tools — agents
+SQLite graph store (`.gald3r/muninn/muninn.db` (per-project)) and exposes six MCP tools — agents
 query the graph before editing to get architectural context in one MCP call
 instead of many grep/read calls.
 
@@ -66,7 +65,7 @@ python -m docker.gald3r.tools.plugins.muninn.indexers.python_indexer --root .
 node docker/gald3r/tools/plugins/muninn/indexers/ts_indexer.js --root .
 ```
 
-The store is created on first use at `~/.gald3r/muninn.db` (override with
+The store is created on first use at `.gald3r/muninn/muninn.db` (per-project) (override with
 `MUNINN_DB_PATH`). Subsequent post-commit hooks refresh changed files only.
 
 ## Available MCP Tools
@@ -129,7 +128,7 @@ the post-commit hook. It:
 2. Falls back to the running gald3r_valhalla MCP server (`-Backend mcp`) when
    in-process Python is unavailable.
 3. Falls back to ripgrep-based import scanning when neither is reachable
-   (same behavior as the deprecated `gitnexus_impact.ps1`).
+   (falls back to ripgrep import scanning when muninn is unavailable).
 
 ```powershell
 .\scripts\graph_impact.ps1 -File "docker/gald3r/tools/plugins/search.py"
@@ -153,25 +152,6 @@ echo 'powershell -NoProfile -ExecutionPolicy Bypass -File .cursor/hooks/g-hk-gra
 
 v1 (T1153-T1158): **Python** + **TypeScript / JavaScript**. Additional
 languages (Rust, Go) are tracked under the T1147 epic follow-ups.
-
-## Migration from g-skl-gitnexus
-
-The previous skill `g-skl-gitnexus` is retained as a deprecation shim. Tool
-name mapping:
-
-| Old (gitnexus) | New (muninn) |
-|---------------|--------------|
-| `gitnexus_blast_radius` | `graph_impact` |
-| `gitnexus_query_callers` | `graph_callers` |
-| `gitnexus_query_callees` | `graph_callees` |
-| `gitnexus_query_imports` | `graph_deps` |
-| `gitnexus_search_symbol` | `graph_search` |
-| `gitnexus_status` | `graph_status` |
-| `scripts/gitnexus_impact.ps1` | `scripts/graph_impact.ps1` |
-| `.cursor/hooks/g-hk-gitnexus-update.ps1` | `.cursor/hooks/g-hk-graph-update.ps1` |
-
-The deprecated `gitnexus_impact.ps1` forwards to `graph_impact.ps1`
-automatically.
 
 ## PARITY NOTES
 

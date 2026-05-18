@@ -270,7 +270,7 @@ Active servers: N  |  Elevated: M  |  Penalty: -P (-3×over10, -1×elevated)
 |----------------------|-----------:|--------------|----------------|
 | gald3r_valhalla      | 42         | scoped       | keep           |
 | chrome-devtools      | 38         | scoped       | keep           |
-| gitnexus             | 14         | scoped       | keep           |
+| muninn              | 14         | scoped       | keep           |
 | desktop-commander    | 9          | [ELEVATED]   | review — broad filesystem/shell access |
 | context-mode         | 8          | scoped       | keep           |
 | ... (one row per active server) ...                                           |

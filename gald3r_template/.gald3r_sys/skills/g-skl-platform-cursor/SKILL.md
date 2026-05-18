@@ -230,7 +230,7 @@ Target length: ~30-60 lines per `hook.md`. Lean by design — full design docs l
 
 ### Authoring
 
-- **Scaffolding**: use `@g-create-hook <hook-name> <event>` to create the `.ps1` + `hook.md` pair atomically.
+- **Scaffolding**: use `@g-hook-create <hook-name> <event>` to create the `.ps1` + `hook.md` pair atomically.
 - **Source of truth**: hook description lives in `hook.md`. `hooks.json` is for wiring only — do not duplicate the description.
 - **Mirror policy**: same parity rules as the `.ps1`. The canonical copy lives in `.cursor/hooks/`; mirror to `.claude/hooks/`, `.agent/hooks/`, `.codex/hooks/`, `.opencode/hooks/` for every IDE that ships the corresponding `.ps1`. md5-verify after each propagation.
 
@@ -330,7 +330,7 @@ Wait for explicit confirmation. If the user hesitates → offer cheaper alternat
 - On cancel: confirm "Cancelled — no credits used"
 - The negotiate-down flow MUST offer at least one cheaper alternative
 
-See `create-skill` SKILL.md `## Cost-Guard Pattern` for the full authoring template.
+See `skill-create` SKILL.md `## Cost-Guard Pattern` for the full authoring template.
 
 ---
 

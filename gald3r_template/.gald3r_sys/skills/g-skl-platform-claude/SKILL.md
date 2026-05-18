@@ -128,7 +128,7 @@ Target length ~30-60 lines per `hook.md` — lean by design. Full design docs li
 }
 ```
 
-Top-level `_doc` in `hooks.json` documents the contract for new contributors. Scaffold new hooks via `/g-create-hook <hook-name> <event>`. See `skills/g-skl-platform-cursor/SKILL.md` §11a for the cross-platform authoring contract.
+Top-level `_doc` in `hooks.json` documents the contract for new contributors. Scaffold new hooks via `/g-hook-create <hook-name> <event>`. See `skills/g-skl-platform-cursor/SKILL.md` §11a for the cross-platform authoring contract.
 
 ---
 

@@ -164,7 +164,7 @@ REFACTOR QUALITY GATE — T{id}
 
 [ ] Zero behavior changes (same inputs → same outputs)
 [ ] All callers of changed interfaces updated
-[ ] Impact scan run: `scripts/gitnexus_impact.ps1 -File <path>` (T921)
+[ ] Impact scan run: `scripts/graph_impact.ps1 -File <path>` (T921)
 [ ] No new public API surface introduced (scope: internal only)
 [ ] Performance: refactor does not regress benchmarks
 

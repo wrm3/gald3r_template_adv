@@ -120,10 +120,10 @@ When `.gald3r/reports/skill_candidates/` exists, perform a dedicated sub-pass:
    {when_to_use} — {how_it_works} (3-5 lines from stub)
 
    **Potential Value**:
-   Reusable pattern surfaced during task execution. Promote via `@g-create-skill` if validated.
+   Reusable pattern surfaced during task execution. Promote via `@g-skill-create` if validated.
 
    **When Ready**:
-   Review the captured pattern; if it generalizes, scaffold via `@g-create-skill` and link the stub.
+   Review the captured pattern; if it generalizes, scaffold via `@g-skill-create` and link the stub.
 
    **Stub reference**: `.gald3r/reports/skill_candidates/{filename}`
    ```

@@ -78,7 +78,7 @@ This prevents architectural drift and ensures changes respect subsystem boundari
 - If fetch fails or times out: skip silently (no error, no delay)
 
 **Step 2: Task Sync**
-- Compare TASKS.md entries to `.gald3r/tasks/**` (T1025 status subfolders: `open/`, `in-progress/`, `awaiting/`, `done/YYYY/MM/`, `closed/`; v3 source of truth; sequential task IDs)
+- Compare TASKS.md entries to `.gald3r/tasks/**` (T1025 status subfolders: `open/`, `in-progress/`, `awaiting/`, `completed/YYYY/MM/`, `closed/`; v3 source of truth; sequential task IDs)
 - Legacy v2: completed tasks may still be under `.gald3r/phases/phase*/` until migrated
 - Phantom = in TASKS.md but no matching `tasks/task{id}_*.md` (and not found in legacy archive if applicable)
 - **Re-work Surface**: for each `[📋]`/pending task, check if its `## Status History` table has a FAIL row as the last entry (a row where the `To` column is `pending` and `Message` starts with `FAIL:`). If so, surface:

@@ -1320,7 +1320,7 @@ Status and report surfaces may embed a compact Workspace-Control snapshot by reu
 For the `gald3r_dev` source repository only, edits to core gald3r framework/platform surfaces are self-hosting changes. If a task changes reusable files under `.cursor/`, `.claude/`, `.agent/`, `.codex/`, `.opencode/`, `.copilot/`, `.github/prompts/`, shared rules, skills, commands, agents, hooks, or generated Copilot instructions, completion requires one of:
 
 - Run `scripts/platform_parity_sync.ps1 -SelfHostingRootSource` and, when approved, `scripts/platform_parity_sync.ps1 -SelfHostingRootSource -Sync`. This uses the root `.cursor/` tree as the maintainer source, syncs root platform folders and `G:/gald3r_ecosystem/gald3r_template_adv`, then runs `tier_sync.ps1` so `G:/gald3r_ecosystem/gald3r_template_full` and `G:/gald3r_ecosystem/gald3r_template_slim` receive tier-filtered content.
-- Record an explicit root-only exception, e.g. `g-gald3r-export` maintainer tooling, proprietary local skills, or personality content intentionally shipped through `personality_packs/` instead of templates.
+- Record an explicit root-only exception, e.g. `g-skl-gald3r-export` maintainer tooling, proprietary local skills, or personality content intentionally shipped through `personality_packs/` instead of templates.
 
 `gald3r_dev-only` command wording means the command is executed only from the source/control repository; it does not by itself exempt reusable framework edits from template parity.
 

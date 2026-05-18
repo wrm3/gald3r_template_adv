@@ -241,7 +241,7 @@ Release checklist:
 1. `CHANGELOG.md` — `[Unreleased]` must have content; move to versioned heading
 2. `README.md` — review version badges and install steps
 3. Version strings in `package.json` / `pyproject.toml` / `AGENTS.md`
-4. After push → consider `@g-gald3r-export` to publish slim template
+4. After push → consider `@g-skl-gald3r-export` to publish slim template
 
 ### Push Hook (Optional)
 

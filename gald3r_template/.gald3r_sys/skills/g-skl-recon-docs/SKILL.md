@@ -122,5 +122,5 @@ analysis_depth: full_text
 
 All notes written by this skill must conform to **`.gald3r/vault/VAULT_OBSIDIAN_STANDARD.md`** (or the copy at `{vault_location}`): §1 frontmatter, §3 tags (`platform-doc` + platform slug + path-derived topics), UTF-8 **no BOM**.
 
-Bulk / scheduled workflows: use **`g-platform-crawl`** for crawl4ai-backed batch documentation crawls; after large crawls run `scripts/gen_vault_moc.py` as documented there.
+Bulk / scheduled workflows: use **`g-skl-platform-crawl`** for crawl4ai-backed batch documentation crawls; after large crawls run `scripts/gen_vault_moc.py` as documented there.
 

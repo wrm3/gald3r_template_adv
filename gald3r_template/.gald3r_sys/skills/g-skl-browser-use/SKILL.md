@@ -28,16 +28,16 @@ triggers:
 
 | Scenario | Use |
 |---|---|
-| Dev/test automation with stable selectors | `control-ui` |
-| IDE-driven UI verification and screenshots | `control-ui` + `cursor-ide-browser` MCP |
-| Local Playwright/Cypress test harness | `control-ui` |
+| Dev/test automation with stable selectors | `ui-control` |
+| IDE-driven UI verification and screenshots | `ui-control` + `cursor-ide-browser` MCP |
+| Local Playwright/Cypress test harness | `ui-control` |
 | **Login-required site (inherit existing session)** | **`g-skl-browser-use` ← you are here** |
 | **Sites with CAPTCHA or bot detection** | **`g-skl-browser-use` (cloud tier)** |
 | **Production monitoring and competitive intel** | **`g-skl-browser-use`** |
 | **Long-running agentic web tasks (async, multi-step)** | **`g-skl-browser-use`** |
 | **Self-healing: agent writes its own missing helpers** | **`g-skl-browser-use`** |
 
-**Key distinction:** `control-ui` is a dev/test harness you write and maintain.
+**Key distinction:** `ui-control` is a dev/test harness you write and maintain.
 `browser-use` is an AI-driven engine that writes, repairs, and re-executes its own
 browser code autonomously — designed for production tasks the agent must complete
 without human selector maintenance.

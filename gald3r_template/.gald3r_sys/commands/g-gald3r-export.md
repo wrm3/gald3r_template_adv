@@ -1,4 +1,4 @@
-# @g-gald3r-export — Export gald3r template to clonable repo
+# @g-skl-gald3r-export — Export gald3r template to clonable repo
 
 > **MAINTAINER TOOL** — gald3r_dev root only. Never propagated to G:/gald3r_ecosystem/gald3r_template_full or consumer installs.
 
@@ -9,11 +9,11 @@ Export `G:/gald3r_ecosystem/gald3r_template_full` to a clean, clonable destinati
 ## Usage
 
 ```
-@g-gald3r-export                          # Guided walkthrough
-@g-gald3r-export dest=G:\gald3r            # Dry-run to destination
-@g-gald3r-export dest=G:\gald3r apply      # Real export
-@g-gald3r-export dest=G:\gald3r apply docs # Export + overlay root README/CHANGELOG/LICENSE
-@g-gald3r-export dest=G:\gald3r force      # Skip parity gate (adds warning note)
+@g-skl-gald3r-export                          # Guided walkthrough
+@g-skl-gald3r-export dest=G:\gald3r            # Dry-run to destination
+@g-skl-gald3r-export dest=G:\gald3r apply      # Real export
+@g-skl-gald3r-export dest=G:\gald3r apply docs # Export + overlay root README/CHANGELOG/LICENSE
+@g-skl-gald3r-export dest=G:\gald3r force      # Skip parity gate (adds warning note)
 ```
 
 ---

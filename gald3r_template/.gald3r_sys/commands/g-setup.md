@@ -10,17 +10,47 @@ Activates the **g-skl-setup** skill which handles the full initialization workfl
 
 ---
 
-## Step 0: Populate Platform Dirs
+## Step 0: First-IDE-Launch Platform Detection
 
-Ensure the calling platform has its skill/agent/command dirs populated from the canonical root.
-Run this before any other setup steps so agents have access to all skills and commands:
+Before doing anything else, detect whether this project has a `.gald3r_sys/` folder.
 
+### Case A: `.gald3r_sys/` EXISTS (gald3r already installed)
 ```powershell
 powershell -NoProfile -ExecutionPolicy Bypass -File setup_gald3r_project.ps1 -Platform auto
 ```
+This regenerates the current platform's dirs from `.gald3r_sys/`. Proceed to Step 1.
 
-This auto-detects the current platform (cursor/claude/agent/codex/opencode/copilot) and copies
-only the relevant dirs. Use `-Platform all` to populate every platform at once.
+### Case B: `.gald3r_sys/` is MISSING (first-time setup / fresh clone)
+The user needs to run the installer from their `gald3r_template` download:
+```
+1. Locate your downloaded gald3r_template folder
+2. Run: .\setup_gald3r_project.ps1
+   (interactive installer — asks for target path and platform selection)
+3. START A NEW SESSION after installation completes so skills/rules load
+4. Then re-run @g-setup (or /g-setup) in the new session
+```
+
+If no template was downloaded, advise the user:
+> "To set up gald3r for the first time, clone or download the gald3r template from
+> https://github.com/wrc3/gald3r_template_adv (or _full, or _slim) and run
+> setup_gald3r_project.ps1 from that folder, pointing it at your project directory.
+> Then start a new IDE session so the skills and rules load into context."
+
+### Determining which platform to install
+Ask the user which IDE they primarily use if it cannot be auto-detected:
+1. **Cursor IDE** → `cursor`
+2. **Claude Code** (CLI) → `claude`
+3. **Gemini / Antigravity** → `agent`
+4. **OpenAI Codex CLI** → `codex`
+5. **OpenCode (sst.dev)** → `opencode`
+6. **GitHub Copilot** → `copilot`
+
+Most users will use 1–2 platforms. Install only those to keep the project clean.
+
+### After platform dirs are populated
+Remind the user:
+> **Start a new session** so gald3r rules and skills load into context before continuing.
+> Platform dirs are regenerated automatically on each session start via hooks.
 
 ---
 

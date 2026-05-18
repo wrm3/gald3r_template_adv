@@ -1,7 +1,7 @@
 Scaffold a new gald3r hook script + companion `hook.md` self-description in one step.
 
 ```
-@g-create-hook <hook-name> <event>
+@g-hook-create <hook-name> <event>
 ```
 
 - `<hook-name>` — slug like `g-hk-my-thing`. The `g-hk-` prefix is required.
@@ -38,7 +38,7 @@ The 5-section format is intentionally lean (~30-60 lines max per `hook.md`). It 
 
 ## Pattern reference
 
-Activates the **create-hook** skill (`skills/create-hook/SKILL.md`) for the underlying Cursor / Claude hook-authoring conventions: hooks.json schema, JSON envelope contract on stdin, exit codes (0=allow, 2=block), matcher syntax, `failClosed` vs warn-only, T600 hook contract extensions (`block_on_failure`, `tool_match`, HTTP hook type, shell-safe arg substitution).
+Activates the **hook-create** skill (`skills/hook-create/SKILL.md`) for the underlying Cursor / Claude hook-authoring conventions: hooks.json schema, JSON envelope contract on stdin, exit codes (0=allow, 2=block), matcher syntax, `failClosed` vs warn-only, T600 hook contract extensions (`block_on_failure`, `tool_match`, HTTP hook type, shell-safe arg substitution).
 
 For the gald3r-specific idempotency guard pattern (`$env:GALD3R_HK_<NAME>_APPLIED`), see `skills/g-skl-platform-cursor/SKILL.md` §11 "Hook Authoring — Idempotency Guard Pattern".
 
@@ -54,5 +54,5 @@ For the gald3r-specific idempotency guard pattern (`$env:GALD3R_HK_<NAME>_APPLIE
 
 - Task: T1171 (OpenClaw hook.md self-description pattern → gald3r hooks)
 - Source: V18 OpenClaw Hooks Crash Course harvest (Bdr7afGhh4I, 2026-05-13)
-- Skill: `create-hook` (generic Cursor hook authoring)
+- Skill: `hook-create` (generic Cursor hook authoring)
 - Skill: `g-skl-platform-cursor`, `g-skl-platform-claude` (hook.md companion pattern documentation)

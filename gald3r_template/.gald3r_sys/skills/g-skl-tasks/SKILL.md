@@ -1,4 +1,4 @@
-﻿---
+---
 name: g-skl-tasks
 maturity: production
 description: Own and manage all task data — TASKS.md index, tasks/ individual files, status transitions, sync validation, complexity scoring, and sprint planning. Single source of truth for everything task-related.
@@ -16,7 +16,7 @@ description: Own and manage all task data — TASKS.md index, tasks/ individual 
 | `tasks/completed/YYYY/MM/DD/` | `completed`, `verified` (partitioned by `completed_date`) |
 | `tasks/paused/` | `paused` |
 | `tasks/cancelled/` | `cancelled` |
-| `tasks/done/` | `failed`, `resource-gated` (other terminal states) |
+| `tasks/failed/` | `failed`, `resource-gated` (other terminal states) |
 
 > **Discovery pattern**: `Get-ChildItem .gald3r/tasks -Recurse -Filter "*.md"` (NOT `tasks/*.md`)
 
@@ -857,7 +857,7 @@ Run at session start or when phantom/orphan issues suspected.
    # PowerShell — discover across ALL status subfolders
    Get-ChildItem ".gald3r/tasks" -Recurse -Filter "task*.md" | Where-Object { $_.FullName -notmatch "\\archive\\" }
    ```
-   This covers `tasks/open/`, `tasks/in-progress/`, `tasks/awaiting-verification/`, `tasks/completed/**`, `tasks/paused/`, `tasks/cancelled/`, `tasks/done/`
+   This covers `tasks/open/`, `tasks/in-progress/`, `tasks/awaiting-verification/`, `tasks/completed/**`, `tasks/paused/`, `tasks/cancelled/`, `tasks/failed/`
 3. **For each TASKS.md entry**:
    ```
    [✅][❌][⏸️][🚫] → look recursively in tasks/**

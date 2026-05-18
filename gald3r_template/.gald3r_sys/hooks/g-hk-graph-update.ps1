@@ -1,7 +1,7 @@
 <#
 .SYNOPSIS
     Post-commit hook: refresh the gald3r_muninn codebase graph index after
-    each commit (T1158, replaces g-hk-gitnexus-update.ps1).
+    each commit (T1158).
 
 .DESCRIPTION
     Runs the muninn indexers (Python AST + TypeScript) over the changed
