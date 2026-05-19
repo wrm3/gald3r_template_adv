@@ -155,18 +155,38 @@ After every `g-go` iteration completes:
 3. **If YES** (`mode: condition-only`):
    - Update `ACTIVE_MISSION.md` `status: achieved`
    - Clear `ACTIVE_GOAL.md` (`@g-goal clear`)
-   - Report: `✅ Mission complete after N turns: "<condition>"`
+   - Report the **final mission summary** (see format below)
 3. **If YES** (`mode: until-empty`, `phase: gate`):
    - Update `ACTIVE_MISSION.md` `phase: drain`
    - Report: `✅ Gate condition met after N turns. Transitioning to drain phase — clearing ai_safe task queue.`
-   - Continue looping with `@g-go-go` semantics: claim and complete all `ai_safe: true` tasks in the queue
+   - **Do NOT offer push here** — the mission is still running; continue looping with `@g-go-go` semantics
    - When the `ai_safe` queue is empty:
      - Update `ACTIVE_MISSION.md` `status: achieved`
      - Clear `ACTIVE_GOAL.md`
-     - Report: `✅ Mission complete (gate + drain) after N turns. Queue empty.`
+     - Report the **final mission summary** (see format below)
 3. **If YES** (`mode: until-empty`, `phase: drain`): skip re-evaluating the condition; check if `ai_safe` queue is empty
-   - If tasks remain: claim next `ai_safe` task, continue loop
-   - If queue empty: `status: achieved`, report as above
+   - If tasks remain: claim next `ai_safe` task, continue loop — **do NOT offer push between tasks**
+   - If queue empty: `status: achieved`, report the **final mission summary** (see format below)
+#### Final mission summary format (used at `status: achieved` only)
+
+```
+✅ Mission complete after N turns: "<condition>"
+
+Tasks shipped: T{id1} ({title}), T{id2} ({title}), ...
+Commits: {N} commits on {branch} — {first_sha}..{last_sha}
+
+Review your changes, then push when ready:
+  git log origin/{branch}..HEAD --oneline   # review commit list
+  git push origin {branch}                  # publish when satisfied
+```
+
+**Push offer rules:**
+- The push offer appears **once** — in this final summary only
+- Session checkpoints do NOT include a push offer (mission is still running)
+- Gate→drain transitions do NOT include a push offer (still running)
+- Between-task completions do NOT include a push offer (still running)
+- If the user says "yes" / "go ahead" / "push it" in reply to this summary: push immediately
+
 4. **If budget exhausted** (`turns_consumed >= turn_budget`):
    - Update `status: abandoned`
    - Surface: `⏸️ Mission turn budget exhausted (N turns). Last evaluator note: <reason>. Run @g-mission status to review, or @g-mission --budget N to extend.`
@@ -414,7 +434,7 @@ Everything else — safety gates, gald3r housekeeping commits, PCAC inbox checks
 **What this means in practice:**
 - After each task commit: stay local, continue the loop
 - At session checkpoint: stay local, report commits ready to push
-- At mission `achieved`: surface the commit list and say `"Run git push to publish"`
+- At mission `achieved`: output the final mission summary with commit list and push offer (see format above). Do not offer push at any earlier point.
 - Never infer push intent from words like "ship", "deploy", "release", or "publish a skill" — those mean the file work, not the remote push
 
 ---
