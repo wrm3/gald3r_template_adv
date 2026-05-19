@@ -347,10 +347,34 @@ When the checkpoint condition triggers:
 
 **Correct session-end output format:**
 ```
-✅ Session checkpoint — N tasks shipped (T{id1}, T{id2}, ...), M commits. 
+✅ Session checkpoint — N tasks shipped (T{id1}, T{id2}, ...), M commits on {branch}. Working tree clean.
+EXIT_REASON: <exit_code> — <one-line rule reference>
 Next task on resume: T{next_id} ({title}).
 Run @g-mission resume to continue.
 ```
+
+**Exit codes (exactly one must appear on every exit/pause/checkpoint):**
+
+| Code | Trigger | What it means |
+|---|---|---|
+| `CONTEXT_GATE` | ctx ≥ 75% | Normal session boundary — context fill hit the checkpoint threshold (see §Session-end checkpoint) |
+| `BUDGET_EXHAUSTED` | `turns_consumed` ≥ `turn_budget` | Turn budget from `--budget N` consumed; resume resets counter |
+| `QUEUE_EMPTY` | No claimable `ai_safe: true` tasks remain | Drain phase complete; all open ai_safe tasks claimed or skipped |
+| `CONDITION_MET` | Evaluator check passes | Mission condition provably achieved; final summary follows |
+| `PCAC_CONFLICT` | `g-hk-pcac-inbox-check.ps1` exits 2 | INBOX conflict gate fired mid-mission; run `@g-pcac-read` to resolve |
+| `AI_SAFE_BLOCKED` | Next task has `ai_safe: false` | Human review required before next task can be claimed autonomously |
+| `BLAST_RADIUS_HIGH` | Next task has `blast_radius: high` | Explicit user approval required before proceeding |
+| `CLEAN_GATE_BLOCKED` | Dirty unrelated paths in touch-set | Unrelated uncommitted changes in orchestration root or a member repo; commit/stash them first |
+| `DEPENDENCY_BLOCKED` | All remaining tasks have unmet deps | Every remaining queued task is waiting on another open task — no claimable work exists |
+| `HUMAN_DECISION_REQUIRED` | Design question can't be inferred | A task requires a user choice that cannot be resolved from existing docs/code/specs |
+| `SAFETY_GATE` | Schema migration / destructive DDL / `git rm` | Non-autonomous operation encountered; see §What cannot span a mission autonomously |
+
+**Rules:**
+- Every exit message MUST include exactly one `EXIT_REASON:` line
+- `CONTEXT_GATE` and `BUDGET_EXHAUSTED` are **non-blocking** — mission stays `status: active`; user resumes with `@g-mission resume`
+- All other codes set `status: paused` in `ACTIVE_MISSION.md`; re-run pre-flight checks on resume
+- Do NOT combine multiple codes — pick the **primary** trigger
+- Include the specific triggering rule or value in the one-liner: e.g., `CONTEXT_GATE — ctx=76%, threshold=75%` or `AI_SAFE_BLOCKED — T1199 has ai_safe: false`
 
 **Incorrect session-end output (do NOT produce):**
 ```
