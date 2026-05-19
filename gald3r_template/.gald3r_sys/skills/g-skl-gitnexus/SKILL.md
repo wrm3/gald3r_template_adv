@@ -17,7 +17,7 @@ token_budget: medium
 
 > **This skill has been superseded by `g-skl-muninn` as of T1158.**
 > All new work should use the muninn `graph_*` MCP tools and the
-> `scripts/graph_impact.ps1` PowerShell wrapper. This page is preserved
+> `.gald3r_sys/skills/g-skl-muninn/scripts/graph_impact.ps1` PowerShell wrapper. This page is preserved
 > only so agents that still recall the old name route to the new one.
 
 ## Why the migration
@@ -39,7 +39,7 @@ token_budget: medium
 | `gitnexus_query_imports` | `graph_deps` |
 | `gitnexus_search_symbol` | `graph_search` |
 | `gitnexus_status` | `graph_status` |
-| `scripts/gitnexus_impact.ps1` | `scripts/graph_impact.ps1` |
+| `.gald3r_sys/skills/g-skl-muninn/scripts/gitnexus_impact.ps1` | `.gald3r_sys/skills/g-skl-muninn/scripts/graph_impact.ps1` |
 | `.cursor/hooks/g-hk-gitnexus-update.ps1` | `.cursor/hooks/g-hk-graph-update.ps1` |
 
 The deprecated `gitnexus_impact.ps1` automatically forwards to
