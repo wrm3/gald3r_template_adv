@@ -232,25 +232,32 @@ When a `g-go`, `g-go-code`, or `g-go-review` session produces a summary that inc
 
 ## Autonomous Push Gate (HARD RULE — all workflows)
 
-**No autonomous workflow may run `git push` without explicit human authorization in that session.**
+**No autonomous workflow may run `git push` silently or without user confirmation in that session.**
 
-This applies to: `g-mission`, `g-go`, `g-go-code`, `g-go-review`, `g-go-go`, any agent implementation loop, any task completion handler.
+This applies to: `g-mission`, `g-go`, `g-go-code`, `g-go-review`, `g-go-go`, any agent implementation loop, any task completion handler, and interactive responses.
 
 | Allowed | Not allowed |
 |---|---|
-| `git add`, `git commit` freely — commits are the audit trail | `git push` without explicit instruction |
-| Push when mission condition statement explicitly says "push" or "publish to GitHub" | Inferring push from "ship", "deploy", "release", "publish a skill", "send it" |
-| Push when user issues explicit `@g-git-push` command | Pushing because commits are "clean and ready" |
-| Push as part of a named task whose AC explicitly requires it | Auto-pushing at mission `achieved` or session checkpoint |
+| `git add`, `git commit` freely — commits are the audit trail | Pushing silently without asking |
+| **Offer to push** at task completion / session checkpoint — then push if user confirms | Assuming "yes" without asking |
+| Push after user confirms the offer ("yes", "go ahead", "push it") | Inferring push from "ship", "deploy", "release", "publish a skill", "send it" |
+| Push when mission condition statement explicitly says "push" or "publish to GitHub" | Auto-pushing at mission `achieved` without surfacing commits first |
 
-**At mission achieved / session checkpoint:** surface commit list, say `"Run git push when ready."` Never run push on the agent's own initiative.
+**Correct behavior at task/mission completion:**
+1. Surface what was committed (N commits, commit SHAs or brief descriptions)
+2. Ask: *"Ready to push to remote?"* or *"Want me to push these?"*
+3. Push only after the user confirms
+
+**Incorrect behavior:**
+- Pushing immediately after commit with no offer or confirmation
+- Saying "run git push yourself" as if the agent can't do it — the agent CAN push, but only after the user says so
 
 | Rationalization | Reality |
 |---|---|
-| "The commits are clean and safe to push" | That's the user's call, not the agent's. |
-| "The task spec says 'ship it'" | Ship = file work done. Push = separate explicit step. |
-| "It's a docs-only commit, low risk" | The rule doesn't have a risk exemption. |
-| "We always push at the end of g-go" | Not anymore. Offer, don't act. |
+| "The commits are clean, obvious to push" | Ask first. The user decides timing. |
+| "The task spec says 'ship it'" | Ship = file work done. Offer push as a follow-up step. |
+| "It's docs-only, low risk" | The rule doesn't have a risk exemption. Ask. |
+| "We always push at the end of g-go" | Offer, confirm, then push. Always. |
 
 ## Delegation Hint
 
