@@ -259,6 +259,64 @@ This applies to: `g-mission`, `g-go`, `g-go-code`, `g-go-review`, `g-go-go`, any
 | "It's docs-only, low risk" | The rule doesn't have a risk exemption. Ask. |
 | "We always push at the end of g-go" | Offer, confirm, then push. Always. |
 
+## `.gald3r/` Gitignore Gate — Controller & PCAC-Linked Repos (HARD RULE)
+
+**Before adding `.gald3r/` (or a broad pattern that matches it) to `.gitignore` in any repo, the agent MUST check whether the repo is a gald3r Workspace-Control controller or a PCAC-linked project, and warn the user.**
+
+### Detection: is this repo a controller or PCAC participant?
+
+Run the following checks (any one positive = controller/PCAC repo):
+1. `.gald3r/linking/workspace_manifest.yaml` exists — this IS a Workspace-Control controller
+2. `.gald3r/linking/link_topology.md` exists with a non-empty `parent:`, `children:`, or `siblings:` block — this IS a PCAC participant
+3. `.gald3r/TASKS.md` exists AND `.gald3r/tasks/` directory is non-empty — this IS an active gald3r coordination repo
+
+### Mandatory warning when any check is positive
+
+**Before writing or accepting any `.gitignore` entry that would exclude `.gald3r/` contents:**
+
+```
+⚠️  WARNING: This repo is a gald3r {controller / PCAC-linked project}.
+    Gitignoring .gald3r/ means EVERY file in it — tasks, bugs, plans,
+    constraints, subsystem specs, idea board, PCAC topology, and all
+    coordination state — will be INVISIBLE to git and UNRECOVERABLE
+    if this directory is lost, wiped, or cloned fresh.
+
+    For private coordination repos (like gald3r_dev itself), .gald3r/
+    should be COMMITTED, not gitignored — the coordination data IS
+    the value of the repo.
+
+    For public or consumer-facing repos where .gald3r/ is local-only
+    task state, gitignoring is intentional and correct.
+
+    Do you want to gitignore .gald3r/ in this repo?
+    → YES: Proceeed — I understand coordination data will be local-only
+    → NO:  Keep .gald3r/ tracked (recommended for controller/PCAC repos)
+```
+
+**Do not write the `.gitignore` entry until the user explicitly confirms YES.**
+
+### Exception: fine-grained gitignore entries are always allowed
+
+Only **broad** patterns that would hide the bulk of `.gald3r/` trigger this gate:
+- `.gald3r/` — TRIGGERS gate
+- `.gald3r` — TRIGGERS gate
+- `**/.gald3r/` — TRIGGERS gate (if applied to root)
+
+These are ALWAYS allowed without asking (specific exclusions within `.gald3r/`):
+- `.gald3r/reports/medic_curate_*.md` — safe (generated/volatile)
+- `.gald3r/muninn/*.db` — safe (local SQLite cache)
+- `.gald3r/themes/*/assets/` — safe (large binary assets)
+- `.gald3r/.user_id` — safe (local identity, never shared)
+- `.gald3r-worktree.json` — safe (agent-owned worktree lock)
+
+| Rationalization | Reality |
+|---|---|
+| "It's local state, shouldn't be in git" | For controller repos, it IS the git state. Ask first. |
+| "The user didn't ask about this" | The user is about to lose their entire plan history. Tell them. |
+| "It's a template repo, of course it's ignored" | Template repos are the exception — warn and confirm for all others. |
+| "We can recover it from the agent's memory" | You can't. Once gitignored and the dir is wiped, it's gone. |
+| "The .gald3r/.gitignore handles it" | The internal `.gald3r/.gitignore` excludes secrets, not the whole folder. Different thing. |
+
 ## Delegation Hint
 
 If the user mentions a task ID (e.g., "task 42", "#103") without explicitly invoking a gald3r agent:
