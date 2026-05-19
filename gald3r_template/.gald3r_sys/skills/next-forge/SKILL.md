@@ -139,6 +139,7 @@ chainTo:
     targetSkill: auth
     message: 'Clerk auth patterns in next-forge — loading Auth guidance for middleware auth, sign-in/sign-up flows, and organization handling.'
     skipIfFileContains: '@auth0/|@descope/'
+token_budget: medium
 ---
 
 # next-forge

@@ -5,6 +5,7 @@ description: >-
   the user explicitly invokes /shell and wants the following text executed
   directly in the terminal.
 disable-model-invocation: true
+token_budget: medium
 ---
 # Run Shell Commands
 

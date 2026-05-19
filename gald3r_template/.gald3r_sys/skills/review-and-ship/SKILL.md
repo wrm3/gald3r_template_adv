@@ -1,6 +1,7 @@
 ---
 name: review-and-ship
 description: Review the current branch for bugs, intent fit, and test coverage; run or write tests; commit focused work; open or update a PR.
+token_budget: medium
 ---
 
 # Review and ship

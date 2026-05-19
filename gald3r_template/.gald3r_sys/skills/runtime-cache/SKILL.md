@@ -50,6 +50,7 @@ chainTo:
     targetSkill: vercel-storage
     message: 'Direct Redis client detected — loading Vercel Storage guidance for Upstash Redis (serverless-native) integration.'
 
+token_budget: medium
 ---
 
 # Vercel Runtime Cache API

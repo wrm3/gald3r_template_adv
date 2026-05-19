@@ -38,6 +38,7 @@ chainTo:
     targetSkill: nextjs
     message: 'Turbopack configuration detected — loading Next.js guidance for top-level turbopack config syntax in Next.js 16 (moved from experimental.turbopack).'
 
+token_budget: medium
 ---
 
 # Turbopack

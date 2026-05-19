@@ -1,6 +1,7 @@
 ---
 name: g-platform-crawl
 description: Crawl platform documentation and web docs with crawl4ai; write .platforms/ and vault markdown with frontmatter. For platform docs, knowledge refresh, web ingest.
+token_budget: medium
 ---
 # g-platform-crawl
 

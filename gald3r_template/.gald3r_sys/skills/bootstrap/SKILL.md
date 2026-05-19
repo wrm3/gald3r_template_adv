@@ -65,6 +65,7 @@ retrieval:
     - database setup
     - first run
 
+token_budget: medium
 ---
 
 # Project Bootstrap Orchestrator

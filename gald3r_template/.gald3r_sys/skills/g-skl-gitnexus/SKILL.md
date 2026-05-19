@@ -10,6 +10,7 @@ version: "1.1-deprecated"
 status: deprecated
 deprecated_by: g-skl-muninn
 related_tasks: [T1147, T1158]
+token_budget: medium
 ---
 
 # g-skl-gitnexus — DEPRECATED, see g-skl-muninn

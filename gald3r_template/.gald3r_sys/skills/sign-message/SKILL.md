@@ -1,6 +1,7 @@
 ---
 name: sign-message
 description: Implement message signing with Phantom Connect SDK for Solana and EVM, including Sign-in with Solana (SIWS) authentication
+token_budget: medium
 ---
 
 # Sign Message

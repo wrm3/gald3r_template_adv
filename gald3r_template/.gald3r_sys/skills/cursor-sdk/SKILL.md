@@ -13,6 +13,7 @@ description: >-
   `/v1/agents` migration. Use eagerly rather than answering from memory; the SDK
   surface evolves and this skill is the source of truth for the external
   package.
+token_budget: medium
 ---
 # Cursor SDK
 

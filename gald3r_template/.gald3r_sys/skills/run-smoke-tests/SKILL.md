@@ -1,6 +1,7 @@
 ---
 name: run-smoke-tests
 description: Run Playwright smoke tests, debug failures, and verify fixes
+token_budget: medium
 ---
 
 # Run smoke tests

@@ -5,6 +5,7 @@ description: >-
   a new type of subagent, set up task-specific agents, configure code reviewers,
   debuggers, or domain-specific assistants with custom prompts.
 disable-model-invocation: true
+token_budget: medium
 ---
 # Creating Custom Subagents
 

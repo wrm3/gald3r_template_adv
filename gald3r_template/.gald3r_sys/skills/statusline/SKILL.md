@@ -4,6 +4,7 @@ description: >-
   Configure a custom status line in the CLI. Use when the user mentions status
   line, statusline, statusLine, CLI status bar, prompt footer customization, or
   wants to add session context above the prompt.
+token_budget: medium
 ---
 # CLI Status Line
 

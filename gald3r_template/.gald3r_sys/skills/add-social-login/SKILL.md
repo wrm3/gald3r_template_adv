@@ -1,6 +1,7 @@
 ---
 name: add-social-login
 description: Configure Google and Apple social login with Phantom Connect SDK to enable embedded wallet creation
+token_budget: medium
 ---
 
 # Add Social Login Authentication

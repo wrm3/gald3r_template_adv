@@ -1,6 +1,7 @@
 ---
 name: deslop
 description: Remove AI-generated code slop and clean up code style
+token_budget: medium
 ---
 
 # Remove AI code slop

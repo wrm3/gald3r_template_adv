@@ -37,6 +37,7 @@ chainTo:
     pattern: 'uses:\s*vercel/|vercel-action|VERCEL_TOKEN.*github'
     targetSkill: deployments-cicd
     message: 'GitHub Actions with Vercel detected — loading CI/CD guidance for deployment workflows, preview URLs, and production promotions.'
+token_budget: medium
 ---
 
 # Vercel Agent

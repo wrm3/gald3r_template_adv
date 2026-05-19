@@ -1,6 +1,7 @@
 ---
 name: setup-browser-app
 description: Scaffold a vanilla JS/TS app with Phantom Browser SDK for wallet integration, without any framework dependency
+token_budget: medium
 ---
 
 # Scaffold Browser App with Phantom Connect

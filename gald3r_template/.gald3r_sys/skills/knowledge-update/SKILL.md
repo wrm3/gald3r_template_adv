@@ -20,6 +20,7 @@ metadata:
     anyOf: []
     noneOf: []
     minScore: 6
+token_budget: medium
 ---
 
 # Vercel Knowledge Updates (2026-02-27)

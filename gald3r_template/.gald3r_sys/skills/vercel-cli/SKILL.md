@@ -82,6 +82,7 @@ chainTo:
     targetSkill: routing-middleware
     message: 'Routing rules in vercel.json — loading Routing Middleware guidance for platform-level request interception patterns.'
 
+token_budget: medium
 ---
 
 # Vercel CLI Skill

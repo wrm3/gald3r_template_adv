@@ -15,6 +15,7 @@ description: >-
 metadata:
   surfaces:
     - ide
+token_budget: medium
 ---
 A canvas is a single `.canvas.tsx` file the IDE compiles so the user can open it beside the chat. Follow the workflow below in order.
 

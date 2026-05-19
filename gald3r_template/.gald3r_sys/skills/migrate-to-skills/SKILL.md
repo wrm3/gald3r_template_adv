@@ -6,6 +6,7 @@ description: >-
   when you want to migrate rules or commands to skills, convert .mdc rules to
   SKILL.md format, or consolidate commands into the skills directory.
 disable-model-invocation: true
+token_budget: medium
 ---
 # Migrate Rules and Slash Commands to Skills
 

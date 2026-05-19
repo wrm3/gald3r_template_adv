@@ -71,6 +71,7 @@ chainTo:
     message: 'Manual JWT verification in middleware — loading Auth guidance for managed auth middleware patterns (Clerk, Descope).'
     skipIfFileContains: 'clerkMiddleware|@clerk/|@auth0/'
 
+token_budget: medium
 ---
 
 # Vercel Routing Middleware

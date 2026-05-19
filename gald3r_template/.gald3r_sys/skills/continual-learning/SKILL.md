@@ -2,6 +2,7 @@
 name: continual-learning
 description: Orchestrate continual learning by delegating transcript mining and AGENTS.md updates to `agents-memory-updater`.
 disable-model-invocation: true
+token_budget: medium
 ---
 
 # Continual Learning

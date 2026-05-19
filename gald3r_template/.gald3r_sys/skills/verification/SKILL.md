@@ -92,6 +92,7 @@ chainTo:
     message: 'AI SDK calls detected during verification — loading AI SDK v6 guidance for streaming, transport, and error handling patterns.'
     skipIfFileContains: 'toUIMessageStreamResponse|DefaultChatTransport'
 
+token_budget: medium
 ---
 
 # Full-Story Verification

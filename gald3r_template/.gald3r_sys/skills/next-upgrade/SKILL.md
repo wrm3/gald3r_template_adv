@@ -55,6 +55,7 @@ chainTo:
     targetSkill: nextjs
     message: 'Pages Router patterns detected during upgrade — loading Next.js best practices for App Router migration.'
 
+token_budget: medium
 ---
 
 # Upgrade Next.js

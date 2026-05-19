@@ -165,6 +165,7 @@ retrieval:
     - Upstash Redis
     - Vercel Storage
 
+token_budget: medium
 ---
 
 # Vercel Storage

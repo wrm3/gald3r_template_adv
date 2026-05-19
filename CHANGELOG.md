@@ -18,6 +18,10 @@ gald3r uses [Semantic Versioning](https://semver.org/).
 
 ### Fixed
 - **`@g-mission` scope-too-large is now a mandatory split, never a defer**: tasks the agent considers too big for one session are immediately decomposed into subtasks (`T{id}a/b/c`); the first slice is claimed and implemented in the same loop iteration. Writing a "deferred" summary and stopping is explicitly forbidden.
+- **`@g-mission --until-empty` — cross-repo tasks no longer blanket-skipped**: tasks with `workspace_repos:` are now run after passing the Clean Controller Gate; they are only skipped if a required repo is inaccessible or has unrelated dirty paths. Previously all cross-repo tasks were skipped in `--until-empty` mode.
+- **`@g-mission --until-empty` — queue-level assessment forbidden**: the agent must individually read every task in `open/`, `in-progress/`, and `paused/` before writing a session checkpoint. A global "the queue looks hard" assessment no longer qualifies as a completed scan.
+- **Autonomous push gate (all `g-go` family workflows)**: no `g-go`, `g-go-code`, `g-go-review`, `g-go-go`, or `g-mission` run may silently push to remote. Push is offered once in the final summary; the agent pushes only after the user confirms.
+- **Push offer now appears once, in the final summary only**: `g-mission`, `g-go`, `g-go-go`, `g-go-code`, and `g-go-review` no longer offer a push at every checkpoint, between tasks, or between swarm waves — only in the final completed/achieved summary.
 - **`@g-mission --until-empty` soft-pauses now convert to skips**: `blast_radius:high`, cross-repo touches, design-judgment-required, and oversized scope all become logged skips in `--until-empty` mode instead of pausing the loop. Only `ai_safe:false` and PCAC `[ORDER]`/`[CONFLICT]` remain as true hard stops.
 - **`@g-mission` session-end framing corrected**: session boundaries now produce a brief checkpoint row (`status: active`) with "Run `@g-mission resume` to continue" — not a "paused-partial Mission Report".
 

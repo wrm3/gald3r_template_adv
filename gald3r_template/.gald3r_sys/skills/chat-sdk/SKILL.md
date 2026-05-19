@@ -134,6 +134,7 @@ chainTo:
     targetSkill: ai-gateway
     message: 'Direct provider API key in chat bot — loading AI Gateway guidance for OIDC auth and model routing.'
     skipIfFileContains: 'gateway\(|@ai-sdk/gateway'
+token_budget: medium
 ---
 
 # Chat SDK

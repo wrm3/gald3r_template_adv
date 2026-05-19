@@ -137,6 +137,7 @@ chainTo:
     message: 'Manual retry logic in serverless handler — loading Workflow DevKit guidance for automatic retries with durable execution.'
     skipIfFileContains: 'use workflow|use step|@vercel/workflow|from\s+[''""](workflow)[''""]'
 
+token_budget: medium
 ---
 
 # Vercel Functions

@@ -1,6 +1,7 @@
 ---
 name: get-pr-comments
 description: Fetch and summarize review comments from the active pull request
+token_budget: medium
 ---
 
 # Get PR comments

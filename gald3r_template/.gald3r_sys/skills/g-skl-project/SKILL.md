@@ -1,6 +1,7 @@
 ---
 name: g-skl-project
 description: Own and manage PROJECT.md (mission, goals, project linking). Single source of truth for project identity. Constraints operations delegated to g-skl-constraints.
+token_budget: medium
 ---
 # g-project
 

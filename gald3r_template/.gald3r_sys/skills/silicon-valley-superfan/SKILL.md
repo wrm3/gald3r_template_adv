@@ -1,6 +1,7 @@
 ---
 name: silicon-valley-superfan
 description: Local-only Silicon Valley fandom skill for the gald3r source repo — encyclopedic show knowledge; not shipped via templates.
+token_budget: medium
 ---
 
 > **Local-only:** This skill lives in root IDE folders for maintainers of the gald3r ecosystem. It is intentionally **not** copied into `templates/` installs.

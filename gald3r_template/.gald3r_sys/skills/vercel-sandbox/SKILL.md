@@ -90,6 +90,7 @@ chainTo:
     targetSkill: ai-sdk
     message: 'Shell exec for code execution detected — loading AI SDK guidance for tool-calling patterns that pair with Vercel Sandbox for safe agent execution.'
 
+token_budget: medium
 ---
 
 # Browser Automation with Vercel Sandbox

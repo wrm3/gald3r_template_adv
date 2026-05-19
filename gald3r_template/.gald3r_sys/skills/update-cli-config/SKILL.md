@@ -8,6 +8,7 @@ description: >-
 metadata:
   surfaces:
     - cli
+token_budget: medium
 ---
 # Cursor CLI Configuration
 

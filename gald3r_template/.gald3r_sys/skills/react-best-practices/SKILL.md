@@ -50,6 +50,7 @@ chainTo:
     targetSkill: shadcn
     message: 'Legacy CSS-in-JS or component library detected — loading shadcn/ui guidance for modern Vercel-native UI.'
 
+token_budget: medium
 ---
 
 # Vercel React Best Practices

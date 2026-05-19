@@ -5,6 +5,7 @@ description: >-
   rule, add coding standards, set up project conventions, configure
   file-specific patterns, create RULE.md files, or asks about .cursor/rules/ or
   AGENTS.md.
+token_budget: medium
 ---
 # Creating Cursor Rules
 

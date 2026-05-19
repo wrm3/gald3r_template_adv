@@ -1,6 +1,7 @@
 ---
 name: check-compiler-errors
 description: Run compile and type-check commands and report failures
+token_budget: medium
 ---
 
 # Check compiler errors

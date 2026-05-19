@@ -1,6 +1,7 @@
 ---
 name: higgsfield
 description: One MCP, 30+ image and video models. Use this skill when the user wants to generate images or videos via Higgsfield (Seedance 2.0, Sora 2, Veo, Kling, Nano Banana Pro, GPT Image 2, Flux, Hailuo, Soul, Cinema Studio, etc.) without juggling per-provider API keys. Triggers on "higgsfield", "higgsfield mcp", "use higgsfield", or any image/video generation request when the user already has a Higgsfield subscription.
+token_budget: medium
 ---
 
 # Higgsfield MCP

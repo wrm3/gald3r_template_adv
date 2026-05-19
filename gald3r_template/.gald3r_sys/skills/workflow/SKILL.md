@@ -442,6 +442,7 @@ retrieval:
     - pause/resume
     - durable
 
+token_budget: medium
 ---
 
 ## *CRITICAL*: Always Use Correct `workflow` Documentation

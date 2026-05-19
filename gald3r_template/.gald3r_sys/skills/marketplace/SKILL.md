@@ -38,6 +38,7 @@ chainTo:
     targetSkill: auth
     message: 'Clerk integration detected — loading Auth guidance for middleware setup, route protection, and organization flows.'
 
+token_budget: medium
 ---
 
 # Vercel Marketplace

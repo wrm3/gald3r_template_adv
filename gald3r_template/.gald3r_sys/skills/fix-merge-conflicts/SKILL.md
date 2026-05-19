@@ -1,6 +1,7 @@
 ---
 name: fix-merge-conflicts
 description: Resolve merge conflicts non-interactively, validate build and tests, and finalize conflict resolution
+token_budget: medium
 ---
 
 # Fix merge conflicts

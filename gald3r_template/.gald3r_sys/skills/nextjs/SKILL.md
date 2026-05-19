@@ -283,6 +283,7 @@ retrieval:
     - configure caching for this data fetch
     - set up server rendering for my pages
 
+token_budget: medium
 ---
 
 # Next.js Best Practices

@@ -310,6 +310,7 @@ chainTo:
     targetSkill: ai-gateway
     message: 'v5 streaming response API detected — loading AI Gateway guidance for model routing with toUIMessageStreamResponse().'
     skipIfFileContains: 'toUIMessageStreamResponse|@ai-sdk/gateway|gateway\('
+token_budget: medium
 ---
 
 ## Prerequisites

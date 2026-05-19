@@ -44,6 +44,7 @@ retrieval:
     - OIDC
     - environment variable
 
+token_budget: medium
 ---
 
 # Vercel Environment Variables

@@ -1,6 +1,7 @@
 ---
 name: setup-react-app
 description: Scaffold a React app with Phantom Connect SDK for wallet integration, including social login and Solana support
+token_budget: medium
 ---
 
 # Scaffold React App with Phantom Connect

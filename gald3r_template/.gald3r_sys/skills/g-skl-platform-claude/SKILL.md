@@ -4,6 +4,7 @@ description: Authoritative reference for Claude Code customization in gald3r pro
 crawl_max_age_days: 7
 vault_doc_path: research/platforms/claude-code/
 vault_docs_url: https://docs.anthropic.com/en/docs/claude-code/overview
+token_budget: low
 ---
 
 # g-skl-platform-claude

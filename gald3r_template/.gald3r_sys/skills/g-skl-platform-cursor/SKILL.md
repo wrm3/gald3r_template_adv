@@ -4,6 +4,7 @@ description: Authoritative reference for Cursor IDE customization in gald3r proj
 crawl_max_age_days: 7
 vault_doc_path: research/platforms/cursor/
 vault_docs_url: https://docs.cursor.com
+token_budget: low
 ---
 
 # g-skl-platform-cursor

@@ -1,6 +1,7 @@
 ---
 name: fix-ci
 description: Find failing PR checks, inspect logs or external check links, and apply focused fixes
+token_budget: medium
 ---
 
 # Fix CI

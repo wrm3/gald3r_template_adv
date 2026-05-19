@@ -1,6 +1,7 @@
 ---
 name: setup-react-native-app
 description: Scaffold a React Native (Expo) app with Phantom React Native SDK for mobile wallet integration, including polyfills and deep linking
+token_budget: medium
 ---
 
 # Scaffold React Native App with Phantom Connect

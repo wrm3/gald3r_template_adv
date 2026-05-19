@@ -1,6 +1,7 @@
 ---
 name: send-sol-transaction
 description: Build and send SOL transfers with Phantom Connect SDK, including transaction construction, signing, and verification
+token_budget: medium
 ---
 
 # Send SOL Transaction

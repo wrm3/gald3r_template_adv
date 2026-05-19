@@ -1,6 +1,7 @@
 ---
 name: hf-cli
 description: "Hugging Face Hub CLI (`hf`) for downloading, uploading, and managing repositories, models, datasets, and Spaces on the Hugging Face Hub. Replaces now deprecated `huggingface-cli` command."
+token_budget: medium
 ---
 
 Install: `curl -LsSf https://hf.co/cli/install.sh | bash -s`.

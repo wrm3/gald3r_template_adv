@@ -7,6 +7,7 @@ description: >-
 metadata:
   surfaces:
     - ide
+token_budget: medium
 ---
 # Updating Cursor Settings
 

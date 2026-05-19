@@ -44,6 +44,7 @@ retrieval:
     - theme
     - components.json
 
+token_budget: medium
 ---
 
 # shadcn/ui

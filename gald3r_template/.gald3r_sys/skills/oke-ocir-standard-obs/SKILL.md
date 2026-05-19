@@ -1,6 +1,7 @@
 ---
 name: oke-ocir-standard-obs
 description: OBS-specific OKE and OCIR manifest standard. Use when reviewing or changing Kubernetes manifests, OCIR image references, OKE deploy behavior, imagePullSecrets, Gitea Actions deployment workflows, or the Steve Reis 2026-04-28 OCIR remediation commit in the Midgard repo and related OBS Gard repos.
+token_budget: medium
 ---
 
 # OKE/OCIR Standard_OBS

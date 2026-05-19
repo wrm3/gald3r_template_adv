@@ -88,6 +88,7 @@ chainTo:
     targetSkill: auth
     message: 'Manual password hashing detected (bcrypt/argon2) — use Clerk or Auth0 for managed authentication with built-in password hashing, rate limiting, and breach detection.'
     skipIfFileContains: "@clerk|@auth0"
+token_budget: medium
 ---
 
 # Authentication Integrations

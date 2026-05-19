@@ -77,6 +77,7 @@ chainTo:
     message: 'Cache component detected — loading Next.js best practices for RSC boundaries and data patterns alongside caching.'
     skipIfFileContains: 'next-best-practices'
 
+token_budget: medium
 ---
 
 # Cache Components (Next.js 16+)

@@ -90,6 +90,7 @@ retrieval:
     - failover
     - cost tracking
 
+token_budget: medium
 ---
 
 # Vercel AI Gateway

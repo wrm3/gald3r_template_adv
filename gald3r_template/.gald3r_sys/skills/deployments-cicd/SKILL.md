@@ -46,6 +46,7 @@ retrieval:
     - rollback
     - promote
     - CI workflow
+token_budget: medium
 ---
 
 # Vercel Deployments & CI/CD
