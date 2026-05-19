@@ -230,6 +230,28 @@ When a `g-go`, `g-go-code`, or `g-go-review` session produces a summary that inc
 | "The user can file it later" | The user has moved on. The pipeline IS the filing point. |
 | "It was just a slug, not a real task" | Exactly the violation. Create the real task now. |
 
+## Autonomous Push Gate (HARD RULE — all workflows)
+
+**No autonomous workflow may run `git push` without explicit human authorization in that session.**
+
+This applies to: `g-mission`, `g-go`, `g-go-code`, `g-go-review`, `g-go-go`, any agent implementation loop, any task completion handler.
+
+| Allowed | Not allowed |
+|---|---|
+| `git add`, `git commit` freely — commits are the audit trail | `git push` without explicit instruction |
+| Push when mission condition statement explicitly says "push" or "publish to GitHub" | Inferring push from "ship", "deploy", "release", "publish a skill", "send it" |
+| Push when user issues explicit `@g-git-push` command | Pushing because commits are "clean and ready" |
+| Push as part of a named task whose AC explicitly requires it | Auto-pushing at mission `achieved` or session checkpoint |
+
+**At mission achieved / session checkpoint:** surface commit list, say `"Run git push when ready."` Never run push on the agent's own initiative.
+
+| Rationalization | Reality |
+|---|---|
+| "The commits are clean and safe to push" | That's the user's call, not the agent's. |
+| "The task spec says 'ship it'" | Ship = file work done. Push = separate explicit step. |
+| "It's a docs-only commit, low risk" | The rule doesn't have a risk exemption. |
+| "We always push at the end of g-go" | Not anymore. Offer, don't act. |
+
 ## Delegation Hint
 
 If the user mentions a task ID (e.g., "task 42", "#103") without explicitly invoking a gald3r agent:
