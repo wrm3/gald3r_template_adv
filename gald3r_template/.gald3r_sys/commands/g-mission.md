@@ -48,7 +48,7 @@ Write `mode: until-empty` in `ACTIVE_MISSION.md` when this flag is active so the
 |---|---|
 | `blast_radius: high` | **SKIP** — log with reason, continue |
 | Task scope exceeds one session | **SPLIT** into subtasks, tackle T{id}a, continue |
-| Cross-repo touches (workspace_repos: [...]) | **SKIP** the cross-repo AC, do gald3r_dev-only ACs as T{id}a, continue |
+| Cross-repo touches (workspace_repos: [...]) | **Run the Clean Controller Gate on each repo in the touch set first.** If all pass (clean or only owned paths dirty), proceed with the full task. Only skip if a required repo is inaccessible on disk or has unrelated dirty paths that block a safe commit. |
 | Design/product judgment required | **SKIP** — log as "needs human decision", continue |
 | Missing prereq infrastructure (e.g., file doesn't exist yet) | **SKIP** — log as "blocked by missing dep", continue |
 
@@ -66,7 +66,7 @@ Everything else: **skip and continue.** The deferred questions file is the skip 
 
 | Forbidden stop reason | What to do instead |
 |---|---|
-| "Most remaining tasks are cross-repo" | Scan each one. Skip the cross-repo ones individually. Keep looping. |
+| "Most remaining tasks are cross-repo" | Scan each one. Run the Clean Controller Gate per repo. Proceed if repos are accessible and clean. Most gald3r work IS cross-repo — blanket skipping cross-repo tasks defeats the mission. |
 | "Most remaining tasks need design judgment" | Scan each one. Skip the judgment-heavy ones. Keep looping. |
 | "The queue looks like it's mostly hard" | This is not a scan. Do the scan. |
 | "Nothing obvious is left" | Verify by actually reading every open/ task frontmatter. |
