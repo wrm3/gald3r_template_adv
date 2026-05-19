@@ -10,8 +10,17 @@ gald3r uses [Semantic Versioning](https://semver.org/).
 ## [Unreleased]
 
 ### Added
+- **`@g-mission resume --budget N`**: override the turn budget on resume without re-setting the mission — enables overnight budget expansion. `ACTIVE_MISSION.md` persists across terminal kills and context fills; paste `@g-mission resume` into any fresh session to continue from the last checkpoint.
+- **`@g-mission` drain queue scan order**: `open/` → `in-progress/` → `paused/`, priority `critical → high → medium → low`, lowest task ID first within same priority.
+
 ### Changed
+- **`@g-mission` context checkpoint threshold raised to 75%**: previous behaviour could fire session checkpoints at ~33% context, leaving almost no usable capacity after startup overhead. Checkpoint now fires at 75% — finishes in-flight task, writes checkpoint cleanly, maximises work per session.
+
 ### Fixed
+- **`@g-mission` scope-too-large is now a mandatory split, never a defer**: tasks the agent considers too big for one session are immediately decomposed into subtasks (`T{id}a/b/c`); the first slice is claimed and implemented in the same loop iteration. Writing a "deferred" summary and stopping is explicitly forbidden.
+- **`@g-mission --until-empty` soft-pauses now convert to skips**: `blast_radius:high`, cross-repo touches, design-judgment-required, and oversized scope all become logged skips in `--until-empty` mode instead of pausing the loop. Only `ai_safe:false` and PCAC `[ORDER]`/`[CONFLICT]` remain as true hard stops.
+- **`@g-mission` session-end framing corrected**: session boundaries now produce a brief checkpoint row (`status: active`) with "Run `@g-mission resume` to continue" — not a "paused-partial Mission Report".
+
 ### Removed
 
 ---
