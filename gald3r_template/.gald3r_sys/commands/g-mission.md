@@ -60,6 +60,28 @@ Write `mode: until-empty` in `ACTIVE_MISSION.md` when this flag is active so the
 
 Everything else: **skip and continue.** The deferred questions file is the skip ledger. The mission loop does NOT stop because a task is hard, complex, or touches other repos.
 
+#### ⛔ CRITICAL — "the remaining queue looks hard" is NOT a valid stop condition
+
+**The agent must scan tasks individually, not assess the queue globally.** The following patterns are FORBIDDEN as stop reasons in `--until-empty` mode:
+
+| Forbidden stop reason | What to do instead |
+|---|---|
+| "Most remaining tasks are cross-repo" | Scan each one. Skip the cross-repo ones individually. Keep looping. |
+| "Most remaining tasks need design judgment" | Scan each one. Skip the judgment-heavy ones. Keep looping. |
+| "The queue looks like it's mostly hard" | This is not a scan. Do the scan. |
+| "Nothing obvious is left" | Verify by actually reading every open/ task frontmatter. |
+| "I recommend the user seed more tasks" | Only acceptable AFTER the loop has individually assessed and skipped every remaining task. |
+
+**Required loop termination check in `--until-empty` mode:**
+
+Before writing a session checkpoint and stopping, the agent MUST be able to answer YES to one of:
+1. Context ≥ 75% (checkpoint, resume later)
+2. Budget exhausted
+3. Hard stop condition hit (`ai_safe: false` or PCAC conflict)
+4. **Every single task in `open/`, `in-progress/`, and `paused/` has been individually read and individually either claimed, completed, or logged as a named skip in `_deferred_questions.md`**
+
+A global queue assessment does not satisfy condition 4. If the agent has not read every task file, it has not finished the loop.
+
 > **Alias names explained:**
 > - `@g-juggernaut` — unstoppable forward momentum; no backing down until condition met
 > - `@g-kamikaze` — all-in; burns turns until done
