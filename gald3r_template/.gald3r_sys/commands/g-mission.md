@@ -403,6 +403,20 @@ Everything else — safety gates, gald3r housekeeping commits, PCAC inbox checks
 - Coordinator-owned gald3r writes still happen after each g-go iteration (housekeeping commit gate applies)
 - Mission does not suppress the bug-discovery gate, todo-completion gate, or code-change-requires-task gate
 
+### ⛔ NO `git push` without explicit goal authorization
+
+**`g-mission` NEVER runs `git push` autonomously.** Commits are local and reversible — pushes are public and permanent. The mission accumulates commits freely as its audit trail, but remote publication requires explicit human authorization.
+
+**The only way push is permitted inside a mission:**
+- The mission's condition statement explicitly includes push (e.g., `"ship and push T1259"`, `"publish to GitHub"`, `"push on completion"`)
+- The user issues a separate `@g-git-push` command after reviewing commits
+
+**What this means in practice:**
+- After each task commit: stay local, continue the loop
+- At session checkpoint: stay local, report commits ready to push
+- At mission `achieved`: surface the commit list and say `"Run git push to publish"`
+- Never infer push intent from words like "ship", "deploy", "release", or "publish a skill" — those mean the file work, not the remote push
+
 ---
 
 ## Non-interactive / Claude Code equivalent
