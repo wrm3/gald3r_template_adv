@@ -16,6 +16,42 @@ Aliases: `@g-juggernaut`, `@g-kamikaze`
 @g-mission --from-task T{id}
 ```
 
+### Overnight / extended AFK runs (IMPORTANT — read before going AFK)
+
+**Do NOT type `@g-mission resume` manually for extended runs.** That requires you to be present each time. Instead, use the wrapper script from a PowerShell terminal — it handles all auto-resumes for you:
+
+```powershell
+# Run this in a PowerShell terminal before going AFK / to bed
+# It loops automatically — you do not need to return until it stops itself
+.\scripts\mission-overnight.ps1
+```
+
+The script calls `claude -p "@g-mission resume --until-empty --budget 999"` in a loop. It parses `EXIT_REASON:` from each session to decide auto-resume vs real stop. You do nothing until the script exits or you come back.
+
+For unattended runs (overnight, meetings, AFK), use the wrapper script instead of typing `@g-mission resume` between sessions:
+
+```powershell
+# Resume an existing mission — runs until QUEUE_EMPTY, CONDITION_MET, or a real blocker
+.\scripts\mission-overnight.ps1
+
+# Start a new mission and drain all ai_safe tasks overnight
+.\scripts\mission-overnight.ps1 -Condition "drain all ai_safe tasks"
+
+# Use a specific model
+.\scripts\mission-overnight.ps1 -ClaudeArgs "--model claude-opus-4-7"
+```
+
+The script loops the `claude` CLI invocation automatically:
+- `CONTEXT_GATE` and `BUDGET_EXHAUSTED` → **transparent auto-resume** (no human input, 5-second gap between sessions)
+- `QUEUE_EMPTY`, `CONDITION_MET` → loop ends (success)
+- Any blocking code (`AI_SAFE_BLOCKED`, `BLAST_RADIUS_HIGH`, `PCAC_CONFLICT`, etc.) → loop ends, human review required
+
+A 12-hour overnight run at 20-30 min per session = up to 36 sessions × 3-10 tasks = 100-360 tasks while you sleep.
+
+**Why sessions exist at all:** The agent's context window has a hard ceiling — at ~75% fill, continuing mid-task would risk memory loss and partial work. The checkpoint commits everything cleanly, then the wrapper relaunches immediately. Context resets are transparent in overnight mode.
+
+**Equivalent to Claude Code's `/goal`:** `scripts/mission-overnight.ps1` is our implementation of the same pattern Claude Code uses natively — a post-session evaluator that fires automatically without user prompts.
+
 ## What it does
 
 `g-mission` is gald3r's autonomous completion loop. You state a verifiable end condition; the agent works toward it across as many `g-go` iterations as needed. After every iteration a lightweight evaluator checks whether the condition holds. If not, the loop continues. If yes, the mission is complete.
@@ -347,10 +383,34 @@ When the checkpoint condition triggers:
 
 **Correct session-end output format:**
 ```
-✅ Session checkpoint — N tasks shipped (T{id1}, T{id2}, ...), M commits. 
+✅ Session checkpoint — N tasks shipped (T{id1}, T{id2}, ...), M commits on {branch}. Working tree clean.
+EXIT_REASON: <exit_code> — <one-line rule reference>
 Next task on resume: T{next_id} ({title}).
 Run @g-mission resume to continue.
 ```
+
+**Exit codes (exactly one must appear on every exit/pause/checkpoint):**
+
+| Code | Trigger | What it means |
+|---|---|---|
+| `CONTEXT_GATE` | ctx ≥ 75% | Normal session boundary — context fill hit the checkpoint threshold (see §Session-end checkpoint) |
+| `BUDGET_EXHAUSTED` | `turns_consumed` ≥ `turn_budget` | Turn budget from `--budget N` consumed; resume resets counter |
+| `QUEUE_EMPTY` | No claimable `ai_safe: true` tasks remain | Drain phase complete; all open ai_safe tasks claimed or skipped |
+| `CONDITION_MET` | Evaluator check passes | Mission condition provably achieved; final summary follows |
+| `PCAC_CONFLICT` | `g-hk-pcac-inbox-check.ps1` exits 2 | INBOX conflict gate fired mid-mission; run `@g-pcac-read` to resolve |
+| `AI_SAFE_BLOCKED` | Next task has `ai_safe: false` | Human review required before next task can be claimed autonomously |
+| `BLAST_RADIUS_HIGH` | Next task has `blast_radius: high` | Explicit user approval required before proceeding |
+| `CLEAN_GATE_BLOCKED` | Dirty unrelated paths in touch-set | Unrelated uncommitted changes in orchestration root or a member repo; commit/stash them first |
+| `DEPENDENCY_BLOCKED` | All remaining tasks have unmet deps | Every remaining queued task is waiting on another open task — no claimable work exists |
+| `HUMAN_DECISION_REQUIRED` | Design question can't be inferred | A task requires a user choice that cannot be resolved from existing docs/code/specs |
+| `SAFETY_GATE` | Schema migration / destructive DDL / `git rm` | Non-autonomous operation encountered; see §What cannot span a mission autonomously |
+
+**Rules:**
+- Every exit message MUST include exactly one `EXIT_REASON:` line
+- `CONTEXT_GATE` and `BUDGET_EXHAUSTED` are **non-blocking** — mission stays `status: active`; user resumes with `@g-mission resume`
+- All other codes set `status: paused` in `ACTIVE_MISSION.md`; re-run pre-flight checks on resume
+- Do NOT combine multiple codes — pick the **primary** trigger
+- Include the specific triggering rule or value in the one-liner: e.g., `CONTEXT_GATE — ctx=76%, threshold=75%` or `AI_SAFE_BLOCKED — T1199 has ai_safe: false`
 
 **Incorrect session-end output (do NOT produce):**
 ```
