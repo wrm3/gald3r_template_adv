@@ -16,7 +16,12 @@ token_budget: medium
 
 `PROJECT.md` is the project identity document. It holds mission, goals, and cross-project linking. Agents read it at session start to orient themselves.
 
+**Optional frontmatter (T1238)**: set `workflow_profile:` at the top of PROJECT.md to select a per-project task lifecycle vocabulary. Built-in profile IDs are `software_dev` (default — legacy gald3r behavior), `content_creation`, and `research`. Drop additional profiles into `.gald3r/config/workflow_profiles/<id>.yaml` to extend. Individual task files may override with `workflow_profile:` in their own YAML frontmatter. See `g-skl-tasks` § Workflow Profiles for the schema.
+
 ```markdown
+---
+workflow_profile: software_dev   # optional; default = software_dev
+---
 # PROJECT.md — {project_name}
 
 ## Vision
