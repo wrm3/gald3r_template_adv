@@ -283,7 +283,7 @@ will need.
 
 ```
 Current task queue:
-!`Get-Content .gald3r/TASKS.md -TotalCount 100`
+!`head -n 100 .gald3r/TASKS.md`
 
 Recent commits:
 !`git log --oneline -10`
