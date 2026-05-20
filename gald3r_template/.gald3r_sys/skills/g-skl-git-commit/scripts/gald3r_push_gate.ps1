@@ -21,9 +21,9 @@
     Print mode and checks but always exit 0 (for agents verifying wiring).
 
 .EXAMPLE
-    ./.gald3r_sys/skills/g-skl-git-commit/.gald3r_sys/skills/g-skl-git-commit/scripts/gald3r_push_gate.ps1
-    ./.gald3r_sys/skills/g-skl-git-commit/.gald3r_sys/skills/g-skl-git-commit/scripts/gald3r_push_gate.ps1 -Release
-    $env:GALD3R_RELEASE_PUSH=1; ./.gald3r_sys/skills/g-skl-git-commit/.gald3r_sys/skills/g-skl-git-commit/scripts/gald3r_push_gate.ps1 -NonInteractive
+    ./.gald3r_sys/skills/g-skl-git-commit/scripts/gald3r_push_gate.ps1
+    ./.gald3r_sys/skills/g-skl-git-commit/scripts/gald3r_push_gate.ps1 -Release
+    $env:GALD3R_RELEASE_PUSH=1; ./.gald3r_sys/skills/g-skl-git-commit/scripts/gald3r_push_gate.ps1 -NonInteractive
 #>
 [CmdletBinding()]
 param(

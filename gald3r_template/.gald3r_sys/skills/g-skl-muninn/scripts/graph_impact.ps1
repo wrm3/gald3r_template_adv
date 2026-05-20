@@ -5,7 +5,7 @@
 
 .DESCRIPTION
     Wraps the gald3r_muninn `graph_impact` MCP tool (replaces the deprecated
-    gitnexus-based `.gald3r_sys/skills/g-skl-muninn/.gald3r_sys/skills/g-skl-muninn/scripts/gitnexus_impact.ps1`).
+    gitnexus-based `.gald3r_sys/skills/g-skl-muninn/scripts/gitnexus_impact.ps1`).
 
     Backend resolution order:
     1. **muninn (preferred)** — invoke the muninn plugin core directly via
@@ -51,7 +51,7 @@
     .\scripts\graph_impact.ps1 -File "..." -Backend mcp
 
 .NOTES
-    Replaces `.gald3r_sys/skills/g-skl-muninn/.gald3r_sys/skills/g-skl-muninn/scripts/gitnexus_impact.ps1` (deprecated). See task T1158 for
+    Replaces `.gald3r_sys/skills/g-skl-muninn/scripts/gitnexus_impact.ps1` (deprecated). See task T1158 for
     the migration; see `.gald3r/subsystems/codebase-graph.md` for subsystem
     overview. The muninn plugin lives at
     `docker/gald3r/tools/plugins/muninn/plugin.py` and exposes the

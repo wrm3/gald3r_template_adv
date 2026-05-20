@@ -10,7 +10,7 @@
       - G:/gald3r_ecosystem/gald3r_template_full
       - G:/gald3r_ecosystem/gald3r_template_adv
 
-    For user project releases, use @g-ship / .gald3r_sys/skills/g-skl-release/.gald3r_sys/skills/g-skl-release/scripts/gald3r_semver.ps1.
+    For user project releases, use @g-ship / .gald3r_sys/skills/g-skl-release/scripts/gald3r_semver.ps1.
 
     Two-track release model:
       Track A (gald3r_dev):      version managed in gald3r_dev CHANGELOG.md / VERSION
